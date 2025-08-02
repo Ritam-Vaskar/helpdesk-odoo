@@ -50,6 +50,7 @@ def priority_score():
 
 @app.route('/priority-users', methods=['POST'])
 def get_priority_users_endpoint():
+    print("Received request to get priority users")
     try:
         data = request.get_json()
         

@@ -29,7 +29,19 @@ const ManageByAgent = () => {
         setLoading(false);
       }
     };
-    fetchAgents();
+    
+    const initializeData = async () => {
+      await fetchAgents();
+      // Optionally seed agent data for development
+      try {
+        await api.post('/api/tickets/seed-agents');
+        console.log('Agent data seeded successfully');
+      } catch (err) {
+        console.log('Agent data seeding failed or already exists:', err.message);
+      }
+    };
+    
+    initializeData();
   }, []);
 
   const fetchAgentTickets = async (agentId) => {
@@ -271,15 +283,21 @@ const ManageByAgent = () => {
                   </div>
                 ) : (
                   <div className="space-y-2">
-                    {priorityUsers?.priorityUsers?.map((user, idx) => (
+                    {priorityUsers?.priority_users?.map((user, idx) => (
                       <div
                         key={idx}
                         className="bg-gray-700 p-3 rounded hover:bg-gray-600 cursor-pointer"
-                        onClick={() => handleAssignTicket(selectedTicket._id, user.userId)}
+                        onClick={() => {
+                          // Find the actual agent by matching user ID
+                          const agent = agents.find(a => a._id === user.userId);
+                          if (agent) {
+                            handleAssignTicket(selectedTicket._id, agent._id);
+                          }
+                        }}
                       >
                         <div className="flex justify-between items-center">
                           <div>
-                            <div className="font-medium text-white">{user.name}</div>
+                            <div className="font-medium text-white">{user.name || `Agent ${user.userId}`}</div>
                             <div className="text-sm text-gray-400">{user.reasoning}</div>
                             <div className="text-xs text-blue-400 mt-1">
                               Match Score: {(user.priority_score * 10).toFixed(1)}/10
