@@ -18,6 +18,29 @@ const ManageByAgent = () => {
   const [summaryLoading, setSummaryLoading] = useState(false);
   const [showAIAssistant, setShowAIAssistant] = useState(false);
 
+  // Clean markdown formatting from text
+  const cleanMarkdown = (text) => {
+    if (!text) return text;
+    
+    return text
+      // Remove markdown headers
+      .replace(/^#+\s*/gm, '')
+      // Remove bold/italic formatting
+      .replace(/\*\*([^*]+)\*\*/g, '$1')  // **bold** -> bold
+      .replace(/\*([^*]+)\*/g, '$1')      // *italic* -> italic
+      .replace(/__([^_]+)__/g, '$1')      // __bold__ -> bold
+      .replace(/_([^_]+)_/g, '$1')        // _italic_ -> italic
+      // Remove bullet points and list formatting
+      .replace(/^\s*[-*+]\s+/gm, '')
+      .replace(/^\s*\d+\.\s+/gm, '')
+      // Remove code blocks
+      .replace(/```[^`]*```/gs, '')
+      .replace(/`([^`]+)`/g, '$1')
+      // Clean up extra whitespace
+      .replace(/\n\s*\n/g, '\n\n')
+      .trim();
+  };
+
   useEffect(() => {
     const fetchAgents = async () => {
       try {
@@ -29,7 +52,19 @@ const ManageByAgent = () => {
         setLoading(false);
       }
     };
-    fetchAgents();
+    
+    const initializeData = async () => {
+      await fetchAgents();
+      // Optionally seed agent data for development
+      try {
+        await api.post('/api/tickets/seed-agents');
+        console.log('Agent data seeded successfully');
+      } catch (err) {
+        console.log('Agent data seeding failed or already exists:', err.message);
+      }
+    };
+    
+    initializeData();
   }, []);
 
   const fetchAgentTickets = async (agentId) => {
@@ -64,14 +99,43 @@ const ManageByAgent = () => {
   };
 
   // AI Assistant Functions
-  const getPriorityUsers = async (ticketId) => {
+  const getPriorityUsers = async (ticket) => {
     try {
       setPriorityLoading(true);
-      const response = await api.get(`/api/tickets/${ticketId}/priority-users`);
-      setPriorityUsers(response.data.priorityUsers);
+      const response = await api.post('/api/users/priority-analysis', {
+        question: `${ticket.title}: ${ticket.description}`,
+        top_n: 5
+      });
+
+      console.log('AI Priority Response:', response.data);
+
+      if (response.data && response.data.flaskResponse && response.data.flaskResponse.priority_users) {
+        // Map Flask response to include actual agent names
+        const mappedUsers = response.data.flaskResponse.priority_users.map(user => {
+          // Find the actual agent by userId
+          const agent = agents.find(a => a._id === user.userId);
+          return {
+            ...user,
+            name: agent ? agent.name : `Agent ${user.userId}`,
+            email: agent ? agent.email : 'unknown@email.com',
+            reasoning: cleanMarkdown(user.reasoning), // Clean markdown from reasoning
+            matching_queries: user.matching_queries?.map(q => cleanMarkdown(q)) || [], // Clean markdown from queries
+            agentId: user.userId // Keep original userId for assignment
+          };
+        });
+
+        setPriorityUsers({ 
+          ...response.data.flaskResponse, 
+          priority_users: mappedUsers 
+        });
+      } else {
+        console.error('Invalid AI response format');
+        setPriorityUsers({ priority_users: [] });
+      }
     } catch (err) {
-      setError("Failed to get priority users from AI");
-      setPriorityUsers([]);
+      console.error('Error getting AI recommendations:', err);
+      setError("Failed to get AI recommendations: " + (err.response?.data?.message || err.message));
+      setPriorityUsers({ priority_users: [] });
     } finally {
       setPriorityLoading(false);
     }
@@ -111,7 +175,7 @@ const ManageByAgent = () => {
   const handleTicketSelect = (ticket) => {
     setSelectedTicket(ticket);
     setShowAIAssistant(true);
-    getPriorityUsers(ticket._id);
+    getPriorityUsers(ticket);
     getTicketSummary(ticket._id);
   };
 
@@ -271,30 +335,55 @@ const ManageByAgent = () => {
                   </div>
                 ) : (
                   <div className="space-y-2">
-                    {priorityUsers?.priorityUsers?.map((user, idx) => (
-                      <div
-                        key={idx}
-                        className="bg-gray-700 p-3 rounded hover:bg-gray-600 cursor-pointer"
-                        onClick={() => handleAssignTicket(selectedTicket._id, user.userId)}
-                      >
-                        <div className="flex justify-between items-center">
-                          <div>
-                            <div className="font-medium text-white">{user.name}</div>
-                            <div className="text-sm text-gray-400">{user.reasoning}</div>
-                            <div className="text-xs text-blue-400 mt-1">
-                              Match Score: {(user.priority_score * 10).toFixed(1)}/10
+                    {priorityUsers?.priority_users?.length > 0 ? (
+                      priorityUsers.priority_users.map((user, idx) => (
+                        <div
+                          key={idx}
+                          className="bg-gray-700 p-3 rounded hover:bg-gray-600 transition-colors"
+                        >
+                          <div className="flex justify-between items-center">
+                            <div className="flex-1">
+                              <div className="font-medium text-white">{user.name}</div>
+                              <div className="text-sm text-gray-400 mb-1">{user.email}</div>
+                              <div className="text-sm text-gray-300">{user.reasoning}</div>
+                              <div className="flex gap-4 mt-2">
+                                <div className="text-xs text-blue-400">
+                                  Score: {user.relevance_score}/10
+                                </div>
+                                <div className="text-xs text-green-400">
+                                  {user.total_solved_queries} queries solved
+                                </div>
+                              </div>
+                              {user.matching_queries && user.matching_queries.length > 0 && (
+                                <div className="text-xs text-yellow-400 mt-1">
+                                  Similar: "{user.matching_queries[0]}"
+                                </div>
+                              )}
+                            </div>
+                            <div className="ml-4">
+                              <button
+                                onClick={() => handleAssignTicket(selectedTicket._id, user.agentId)}
+                                disabled={assignmentLoading}
+                                className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded text-sm disabled:opacity-50 transition-colors"
+                              >
+                                {assignmentLoading ? "Assigning..." : "Assign"}
+                              </button>
+                              {idx === 0 && user.relevance_score > 0 && (
+                                <div className="text-xs text-green-500 mt-1 text-center">
+                                  Top Match ⚡
+                                </div>
+                              )}
                             </div>
                           </div>
-                          <button
-                            className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded text-sm"
-                            disabled={assignmentLoading}
-                          >
-                            {assignmentLoading ? "Assigning..." : "Assign"}
-                          </button>
                         </div>
+                      ))
+                    ) : (
+                      <div className="text-center py-8">
+                        <p className="text-gray-400">No AI recommendations available</p>
+                        <p className="text-gray-500 text-sm mt-1">
+                          Make sure the Flask AI server is running
+                        </p>
                       </div>
-                    )) || (
-                      <p className="text-gray-400">No AI recommendations available</p>
                     )}
                   </div>
                 )}

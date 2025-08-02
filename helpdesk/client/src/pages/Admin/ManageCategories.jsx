@@ -11,6 +11,8 @@ const ManageCategories = () => {
   const [selectedTicket, setSelectedTicket] = useState(null);
   const [selectedAgent, setSelectedAgent] = useState("");
   const [assignmentLoading, setAssignmentLoading] = useState(false);
+  const [aiRecommendations, setAiRecommendations] = useState([]);
+  const [loadingRecommendations, setLoadingRecommendations] = useState(false);
 
   useEffect(() => {
     const fetchInitialData = async () => {
@@ -61,11 +63,97 @@ const ManageCategories = () => {
       setError("");
       setSelectedTicket(null);
       setSelectedAgent("");
+      setAiRecommendations([]);
     } catch (err) {
       setError("Failed to assign ticket");
     } finally {
       setAssignmentLoading(false);
     }
+  };
+
+  // Clean markdown formatting from text
+  const cleanMarkdown = (text) => {
+    if (!text) return text;
+    
+    return text
+      // Remove markdown headers
+      .replace(/^#+\s*/gm, '')
+      // Remove bold/italic formatting
+      .replace(/\*\*([^*]+)\*\*/g, '$1')  // **bold** -> bold
+      .replace(/\*([^*]+)\*/g, '$1')      // *italic* -> italic
+      .replace(/__([^_]+)__/g, '$1')      // __bold__ -> bold
+      .replace(/_([^_]+)_/g, '$1')        // _italic_ -> italic
+      // Remove bullet points and list formatting
+      .replace(/^\s*[-*+]\s+/gm, '')
+      .replace(/^\s*\d+\.\s+/gm, '')
+      // Remove code blocks
+      .replace(/```[^`]*```/gs, '')
+      .replace(/`([^`]+)`/g, '$1')
+      // Clean up extra whitespace
+      .replace(/\n\s*\n/g, '\n\n')
+      .trim();
+  };
+
+  // Get AI recommendations from Flask server
+  const getAIRecommendations = async (ticket) => {
+    try {
+      setLoadingRecommendations(true);
+      const response = await api.post('/api/users/priority-analysis', {
+        question: `${ticket.title}: ${ticket.description}`,
+        top_n: 5
+      });
+
+      if (response.data && response.data.flaskResponse && response.data.flaskResponse.priority_users) {
+        const recommendations = response.data.flaskResponse.priority_users.map(user => ({
+          userId: user.userId,
+          name: response.data.priorityUsers.find(p => p.userId === user.userId)?.name || user.userId,
+          email: response.data.priorityUsers.find(p => p.userId === user.userId)?.email || 'unknown@email.com',
+          priority_score: user.relevance_score / 10, // Convert 0-10 scale to 0-1
+          reasoning: cleanMarkdown(user.reasoning), // Clean markdown from reasoning
+          matching_queries: user.matching_queries?.map(q => cleanMarkdown(q)) || [], // Clean markdown from queries
+          total_solved_queries: user.total_solved_queries,
+          relevance_score: user.relevance_score
+        }));
+
+        // Sort by relevance score (highest first)
+        recommendations.sort((a, b) => b.relevance_score - a.relevance_score);
+        setAiRecommendations(recommendations);
+      } else {
+        console.error('Invalid response format from Flask server');
+        setAiRecommendations([]);
+      }
+    } catch (error) {
+      console.error('Error getting AI recommendations:', error);
+      setError('Failed to get AI recommendations: ' + (error.response?.data?.message || error.message));
+      setAiRecommendations([]);
+    } finally {
+      setLoadingRecommendations(false);
+    }
+  };
+
+  // Quick assign to AI recommended agent
+  const handleQuickAssign = async (ticketId, recommendedAgent) => {
+    try {
+      setAssignmentLoading(true);
+      await api.post(`/api/tickets/${ticketId}/assign`, { agentId: recommendedAgent.userId });
+      fetchCategoryTickets(selectedCategory);
+      setError("");
+      setSelectedTicket(null);
+      setSelectedAgent("");
+      setAiRecommendations([]);
+    } catch (err) {
+      setError("Failed to assign ticket to recommended agent");
+    } finally {
+      setAssignmentLoading(false);
+    }
+  };
+
+  // Handle ticket selection and trigger AI analysis
+  const handleTicketSelect = (ticket) => {
+    setSelectedTicket(ticket);
+    setSelectedAgent("");
+    setAiRecommendations([]);
+    getAIRecommendations(ticket);
   };
 
   const getPriorityLabel = (priority) => {
@@ -168,39 +256,121 @@ const ManageCategories = () => {
 
                     <div className="ml-4">
                       {selectedTicket?._id === ticket._id ? (
-                        <div className="flex items-center gap-2">
-                          <select
-                            value={selectedAgent}
-                            onChange={(e) => setSelectedAgent(e.target.value)}
-                            className="bg-gray-600 text-white rounded px-3 py-2 text-sm"
-                          >
-                            <option value="">Select Agent</option>
-                            {agents.map((agent) => (
-                              <option key={agent._id} value={agent._id}>
-                                {agent.name}
+                        <div className="space-y-3">
+                          {/* AI Recommendations Loading */}
+                          {loadingRecommendations ? (
+                            <div className="flex items-center gap-2 text-blue-400">
+                              <div className="animate-spin rounded-full h-4 w-4 border-t-2 border-b-2 border-blue-400"></div>
+                              <span className="text-sm">Getting AI recommendations...</span>
+                            </div>
+                          ) : aiRecommendations.length > 0 ? (
+                            <>
+                              {/* AI Analysis Summary */}
+                              <div className="mb-3 p-2 bg-green-900/20 border border-green-600/30 rounded text-xs text-gray-300">
+                                <div className="flex items-center gap-2 mb-1">
+                                  <span className="text-green-400">🤖 AI Analysis:</span>
+                                  <span>{aiRecommendations.length} agents analyzed</span>
+                                </div>
+                                <div className="truncate">
+                                  Best match: <span className="text-blue-400">{aiRecommendations[0]?.name}</span> 
+                                  (Score: {aiRecommendations[0]?.relevance_score}/10)
+                                </div>
+                              </div>
+                              
+                              {/* AI Recommended Agents */}
+                              <div className="bg-gray-600 rounded-lg p-3 max-w-md">
+                                <h4 className="text-sm font-medium text-blue-400 mb-2">
+                                  🤖 AI Recommended Agents:
+                                </h4>
+                                <div className="space-y-2 max-h-40 overflow-y-auto">
+                                  {aiRecommendations.map((rec, idx) => (
+                                    <div key={idx} className="flex items-center gap-2">
+                                      <button
+                                        onClick={() => setSelectedAgent(rec.userId)}
+                                        className={`flex-1 text-left p-2 rounded text-sm transition-colors ${
+                                          selectedAgent === rec.userId
+                                            ? "bg-blue-600 text-white"
+                                            : "bg-gray-700 hover:bg-gray-600 text-gray-300"
+                                        }`}
+                                      >
+                                        <div className="flex justify-between items-center">
+                                          <span className="font-medium">{rec.name}</span>
+                                          <div className="flex items-center gap-2">
+                                            <span className="text-xs text-green-400">
+                                              {rec.total_solved_queries} solved
+                                            </span>
+                                            <span className="text-xs text-blue-400">
+                                              Score: {rec.relevance_score}/10
+                                            </span>
+                                          </div>
+                                        </div>
+                                        <div className="text-xs opacity-75 mt-1">
+                                          {rec.reasoning}
+                                        </div>
+                                        {rec.matching_queries && rec.matching_queries.length > 0 && (
+                                          <div className="text-xs text-yellow-400 mt-1 truncate">
+                                            Similar: "{rec.matching_queries[0]}"
+                                          </div>
+                                        )}
+                                      </button>
+                                      {idx === 0 && rec.relevance_score > 0 && (
+                                        <button
+                                          onClick={() => handleQuickAssign(ticket._id, rec)}
+                                          disabled={assignmentLoading}
+                                          className="bg-green-600 hover:bg-green-700 text-white px-2 py-1 rounded text-xs disabled:opacity-50 flex items-center"
+                                          title="Quick assign to top recommendation"
+                                        >
+                                          ⚡
+                                        </button>
+                                      )}
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            </>
+                          ) : null}
+
+                          {/* Manual Selection Fallback */}
+                          <div className="flex items-center gap-2">
+                            <select
+                              value={selectedAgent}
+                              onChange={(e) => setSelectedAgent(e.target.value)}
+                              className="bg-gray-600 text-white rounded px-3 py-2 text-sm"
+                            >
+                              <option value="">
+                                {aiRecommendations.length > 0 ? "Or select manually" : "Select Agent"}
                               </option>
-                            ))}
-                          </select>
-                          <button
-                            onClick={() => handleAssignTicket(ticket._id)}
-                            disabled={assignmentLoading}
-                            className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded text-sm disabled:opacity-50"
-                          >
-                            {assignmentLoading ? "Assigning..." : "Assign"}
-                          </button>
-                          <button
-                            onClick={() => setSelectedTicket(null)}
-                            className="bg-gray-600 hover:bg-gray-500 text-white px-3 py-2 rounded text-sm"
-                          >
-                            Cancel
-                          </button>
+                              {agents.map((agent) => (
+                                <option key={agent._id} value={agent._id}>
+                                  {agent.name}
+                                </option>
+                              ))}
+                            </select>
+                            <button
+                              onClick={() => handleAssignTicket(ticket._id)}
+                              disabled={assignmentLoading || !selectedAgent}
+                              className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded text-sm disabled:opacity-50"
+                            >
+                              {assignmentLoading ? "Assigning..." : "Assign"}
+                            </button>
+                            <button
+                              onClick={() => {
+                                setSelectedTicket(null);
+                                setAiRecommendations([]);
+                                setSelectedAgent("");
+                              }}
+                              className="bg-gray-600 hover:bg-gray-500 text-white px-3 py-2 rounded text-sm"
+                            >
+                              Cancel
+                            </button>
+                          </div>
                         </div>
                       ) : (
                         <button
-                          onClick={() => setSelectedTicket(ticket)}
-                          className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded text-sm"
+                          onClick={() => handleTicketSelect(ticket)}
+                          className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white px-6 py-2 rounded-lg text-sm font-medium flex items-center gap-2 transition-all duration-200 shadow-lg"
                         >
-                          Assign Agent
+                          🤖 AI Assign Agent
                         </button>
                       )}
                     </div>

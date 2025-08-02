@@ -18,6 +18,7 @@ const {
   getTicketSummary,
   searchSimilarComplaints,
   enhancedSearchComplaints,
+  seedAgentData,
 } = require("../controllers/ticketController");
 
 // Configure multer for memory storage
@@ -98,4 +99,15 @@ router.post(
   enhancedSearchComplaints
 );
 
+// Seed agent data (Development only)
+router.post(
+  "/seed-agents",
+  authMiddleware,
+  roleMiddleware(["Admin"]),
+  seedAgentData
+);
+
 module.exports = router;
+
+
+// /api/users/role/Agent

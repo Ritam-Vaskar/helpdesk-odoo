@@ -10,7 +10,9 @@ const userSchema = new mongoose.Schema({
     default: "User"
   },
   expertise: [String], // Areas of expertise for agents
-  skills: [String]     // Technical skills for agents
-});
+  skills: [String],    // Technical skills for agents
+  expertiseDomain: { type: String }, // Main expertise domain
+  solvedQueries: [String] // List of previously solved queries/issues
+}, { timestamps: true });
 
 module.exports = mongoose.model("User", userSchema);

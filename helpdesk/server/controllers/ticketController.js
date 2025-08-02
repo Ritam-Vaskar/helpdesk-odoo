@@ -4,6 +4,7 @@ const User = require("../models/User");
 const Notification = require("../models/Notification");
 const { uploadToBlob } = require("../utils/blobService");
 const axios = require("axios");
+// const sendNotification = require("../utils/sendNotification");
 
 // Flask server configuration
 const FLASK_SERVER_URL = process.env.FLASK_SERVER_URL || "http://localhost:8080";
@@ -451,11 +452,11 @@ exports.assignTicketToAgent = async (req, res) => {
     }
 
     // Send notification to the assigned agent
-    await sendNotification(
-      agentId,
-      `You have been assigned ticket: ${ticket.title}`,
-      'assignment'
-    );
+    // await sendNotification(
+    //   agentId,
+    //   `You have been assigned ticket: ${ticket.title}`,
+    //   'assignment'
+    // );
 
     res.json(ticket);
   } catch (err) {
@@ -477,20 +478,24 @@ exports.getPriorityUsers = async (req, res) => {
       return res.status(404).json({ message: "Ticket not found" });
     }
 
-    // Get all agents
-    const agents = await User.find({ role: "Agent" }).select("name email expertise skills");
+    // Get all agents with detailed information
+    const agents = await User.find({ role: "Agent" }).select("name email expertise skills expertiseDomain solvedQueries");
     
     if (agents.length === 0) {
       return res.status(404).json({ message: "No agents available" });
     }
 
-    // Format users for Flask server
+    // Format users for Flask server according to the expected format
     const usersData = agents.map(agent => ({
-      id: agent._id,
-      name: agent.name,
-      email: agent.email,
-      expertise: agent.expertise || [],
-      skills: agent.skills || []
+      userId: agent._id.toString(),
+      expertise_domain: agent.expertiseDomain || "General Support",
+      "Solved queries": agent.solvedQueries && agent.solvedQueries.length > 0 
+        ? agent.solvedQueries 
+        : [
+            "General technical support",
+            "Customer service issues",
+            "Basic troubleshooting"
+          ]
     }));
 
     try {
@@ -625,6 +630,95 @@ exports.enhancedSearchComplaints = async (req, res) => {
     console.error("Error in enhanced search:", err);
     res.status(500).json({ 
       message: "Failed to perform enhanced search",
+      error: err.message 
+    });
+  }
+};
+
+// Seed sample agent data (for development/testing)
+exports.seedAgentData = async (req, res) => {
+  try {
+    const sampleAgentsData = [
+      {
+        email: "tech.agent@helpdesk.com",
+        expertiseDomain: "Hardware Troubleshooting",
+        solvedQueries: [
+          "How to solve laptop problems?",
+          "How does laptop GPU work?",
+          "How to fix laptop screen issues?",
+          "How to troubleshoot laptop battery problems?",
+          "How to clean laptop keyboard properly?",
+          "How to upgrade laptop RAM?",
+          "How to install software on laptop?",
+          "How to update laptop drivers?",
+          "How to optimize laptop performance?",
+          "How to fix laptop overheating issues?",
+          "How to replace laptop hard drive?",
+          "How to fix laptop charging port?",
+          "How to troubleshoot laptop audio issues?"
+        ]
+      },
+      {
+        email: "webdev.agent@helpdesk.com",
+        expertiseDomain: "Web Development",
+        solvedQueries: [
+          "How to debug JavaScript code?",
+          "How to implement REST APIs?",
+          "How to optimize database queries?",
+          "How to handle authentication in web apps?",
+          "How to deploy applications to cloud?",
+          "How to implement responsive design?",
+          "How to use version control with Git?",
+          "How to implement JWT authentication?",
+          "How to optimize web application performance?",
+          "How to handle CORS in web applications?",
+          "How to implement real-time features with WebSockets?",
+          "How to secure web applications?",
+          "How to implement caching strategies?"
+        ]
+      },
+      {
+        email: "ai.agent@helpdesk.com",
+        expertiseDomain: "AI/API Integration",
+        solvedQueries: [
+          "How to integrate Gemini API with Flask?",
+          "How to summarize text using Gemini API?",
+          "How to handle errors in Gemini API integration?",
+          "How to configure API keys for Gemini?",
+          "How to implement text processing with AI models?",
+          "How to handle API rate limiting?",
+          "How to parse JSON responses from APIs?",
+          "How to implement error handling for API calls?"
+        ]
+      }
+    ];
+
+    let updatedCount = 0;
+    
+    for (const agentData of sampleAgentsData) {
+      const result = await User.updateOne(
+        { email: agentData.email, role: "Agent" },
+        {
+          $set: {
+            expertiseDomain: agentData.expertiseDomain,
+            solvedQueries: agentData.solvedQueries
+          }
+        }
+      );
+      
+      if (result.modifiedCount > 0) {
+        updatedCount++;
+      }
+    }
+
+    res.json({
+      message: `Successfully updated ${updatedCount} agents with expertise data`,
+      updatedCount
+    });
+  } catch (err) {
+    console.error("Error seeding agent data:", err);
+    res.status(500).json({ 
+      message: "Failed to seed agent data",
       error: err.message 
     });
   }

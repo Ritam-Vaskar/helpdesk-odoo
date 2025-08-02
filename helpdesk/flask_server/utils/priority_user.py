@@ -26,7 +26,7 @@ def simple_analyze_user(user_id, solved_queries, question):
         - 5 = moderately relevant  
         - 0 = not relevant
         
-        Just respond with the number only.
+        IMPORTANT: Respond with only the number, no additional text, no markdown, no formatting.
         """
         
         print(f"Sending prompt to model...")
@@ -43,13 +43,13 @@ def simple_analyze_user(user_id, solved_queries, question):
         
         # Generate simple reasoning based on score
         if score >= 8:
-            reasoning = f"High relevance - user has strong expertise in this domain"
+            reasoning = "High relevance - user has strong expertise in this domain"
         elif score >= 5:
-            reasoning = f"Moderate relevance - user has some related experience"
+            reasoning = "Moderate relevance - user has some related experience"
         elif score >= 2:
-            reasoning = f"Low relevance - user has limited related experience"
+            reasoning = "Low relevance - user has limited related experience"
         else:
-            reasoning = f"No relevance - user's expertise is in different domains"
+            reasoning = "No relevance - user's expertise is in different domains"
         
         # Find matching queries by simple keyword matching
         question_keywords = set(question.lower().split())
