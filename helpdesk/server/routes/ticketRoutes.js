@@ -1,7 +1,6 @@
 const express = require("express");
 const router = express.Router();
 const multer = require("multer");
-const path = require("path");
 
 const authMiddleware = require("../middlewares/authMiddleware");
 const roleMiddleware = require("../middlewares/roleMiddleware");
@@ -14,35 +13,32 @@ const {
   getTicketStats,
   getRecentTickets,
   getTicketsByAgent,
-  assignTicketToAgent, // Add this
+  assignTicketToAgent,
 } = require("../controllers/ticketController");
 
-// Configure multer for file uploads
-const storage = multer.diskStorage({
-  destination: function (req, file, cb) {
-    cb(null, path.join(__dirname, "../uploads"));
-  },
-  filename: function (req, file, cb) {
-    const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1e9);
-    cb(null, uniqueSuffix + "-" + file.originalname);
+// Configure multer for memory storage
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: {
+    fileSize: 5 * 1024 * 1024, // 5MB limit
   },
 });
 
-const upload = multer({ storage: storage });
+// Routes
 
-// Get ticket statistics (specific route before dynamic routes)
+// Get ticket statistics
 router.get("/stats", authMiddleware, getTicketStats);
 
-// Get recent tickets (specific route before dynamic routes)
+// Get recent tickets
 router.get("/recent", authMiddleware, getRecentTickets);
 
-// Create a new ticket (any logged-in user)
+// Create a new ticket
 router.post("/", authMiddleware, upload.single("attachment"), createTicket);
 
-// Get tickets (users only see their own)
+// Get all tickets
 router.get("/", authMiddleware, getTickets);
 
-// Get tickets by agent (before dynamic routes)
+// Get tickets by agent
 router.get(
   "/agent/:agentId",
   authMiddleware,
@@ -50,7 +46,7 @@ router.get(
   getTicketsByAgent
 );
 
-// Get ticket by id (dynamic route after specific routes)
+// Get ticket by ID
 router.get("/:id", authMiddleware, getTicketById);
 
 // Update ticket
@@ -59,7 +55,7 @@ router.put("/:id", authMiddleware, updateTicket);
 // Add comment to ticket
 router.post("/:id/comments", authMiddleware, addComment);
 
-// Assign ticket to agent (admin only)
+// Assign ticket to agent
 router.post(
   "/:ticketId/assign",
   authMiddleware,

@@ -1,4 +1,5 @@
 const User = require("../models/User");
+const Ticket = require("../models/Ticket"); // Assuming Ticket model is in the same directory
 
 // Get all users with a specific role
 exports.getUsersByRole = async (req, res) => {
@@ -80,5 +81,45 @@ exports.deleteUser = async (req, res) => {
       message: "Error deleting user",
       error: err.message 
     });
+  }
+};
+
+// Get user profile
+exports.getUserProfile = async (req, res) => {
+  try {
+    const user = await User.findById(req.user.userId)
+      .select('-password')
+      .lean();
+      
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    // Get user's ticket statistics
+    const ticketStats = await Ticket.aggregate([
+      { $match: { createdBy: user._id } },
+      { $group: {
+        _id: null,
+        total: { $sum: 1 },
+        open: { $sum: { $cond: [{ $eq: ["$status", "Open"] }, 1, 0] } },
+        inProgress: { $sum: { $cond: [{ $eq: ["$status", "In Progress"] }, 1, 0] } },
+        resolved: { $sum: { $cond: [{ $eq: ["$status", "Resolved"] }, 1, 0] } },
+        closed: { $sum: { $cond: [{ $eq: ["$status", "Closed"] }, 1, 0] } }
+      }}
+    ]);
+
+    res.json({
+      user,
+      stats: ticketStats[0] || {
+        total: 0,
+        open: 0,
+        inProgress: 0,
+        resolved: 0,
+        closed: 0
+      }
+    });
+  } catch (err) {
+    console.error("Error fetching user profile:", err);
+    res.status(500).json({ message: "Error fetching user profile" });
   }
 };

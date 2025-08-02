@@ -5,7 +5,8 @@ const roleMiddleware = require("../middlewares/roleMiddleware");
 const {
   getUsersByRole,
   updateUserRole,
-  deleteUser
+  deleteUser,
+  getUserProfile
 } = require("../controllers/userController");
 
 // All routes require authentication and admin role
@@ -20,5 +21,8 @@ router.put("/:userId/role", updateUserRole);
 
 // Delete user
 router.delete("/:userId", deleteUser);
+
+// Get user profile - available to authenticated users
+router.get("/profile", authMiddleware, getUserProfile);
 
 module.exports = router;

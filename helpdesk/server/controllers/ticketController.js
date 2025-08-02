@@ -2,18 +2,43 @@ const Ticket = require("../models/Ticket");
 const mongoose = require("mongoose");
 const User = require("../models/User");
 const Notification = require("../models/Notification");
+const { uploadToBlob } = require("../utils/blobService");
 
 exports.createTicket = async (req, res) => {
   try {
+    if (!req.body.title || !req.body.description) {
+      return res.status(400).json({ message: "Title and description are required" });
+    }
+
     const ticketData = {
       ...req.body,
       createdBy: req.user.userId,
       status: "Open"
     };
 
-    // Add attachment if file was uploaded
+    // Handle file upload to Azure Blob Storage
     if (req.file) {
-      ticketData.attachment = `/uploads/${req.file.filename}`;
+      try {
+        // Validate file type
+        const allowedTypes = ['image/jpeg', 'image/png', 'application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'];
+        if (!allowedTypes.includes(req.file.mimetype)) {
+          return res.status(400).json({ 
+            message: "Invalid file type. Allowed types: JPEG, PNG, PDF, DOC, DOCX" 
+          });
+        }
+
+        const blobUrl = await uploadToBlob(req.file);
+        if (!blobUrl) {
+          throw new Error('File upload failed - no URL returned');
+        }
+        ticketData.attachment = blobUrl;
+      } catch (error) {
+        console.error("File upload error:", error);
+        return res.status(500).json({ 
+          message: "File upload failed", 
+          error: error.message 
+        });
+      }
     }
 
     const ticket = new Ticket(ticketData);
@@ -319,58 +344,57 @@ exports.getRecentTickets = async (req, res) => {
     const tickets = await Ticket.find({ createdBy: req.user.userId })
       .populate("createdBy", "name email")
       .populate("category", "name")
+      .populate("assignedTo", "name email")
+      .populate({
+        path: "comments",
+        populate: {
+          path: "author",
+          select: "name email"
+        }
+      })
       .sort({ createdAt: -1 })
-      .limit(5);
+      .limit(10);
 
-    res.json(tickets);
+    if (!tickets || tickets.length === 0) {
+      return res.status(404).json({ message: "No tickets found" });
+    }
+
+    // Get progress stats for each ticket
+    const ticketsWithProgress = tickets.map(ticket => {
+      const totalComments = ticket.comments.length;
+      let progress = 0;
+      
+      switch(ticket.status) {
+        case 'Open':
+          progress = 25;
+          break;
+        case 'In Progress':
+          progress = 50;
+          break;
+        case 'Resolved':
+          progress = 75;
+          break;
+        case 'Closed':
+          progress = 100;
+          break;
+        default:
+          progress = 0;
+      }
+
+      return {
+        ...ticket.toObject(),
+        progress,
+        totalComments
+      };
+    });
+
+    res.json(ticketsWithProgress);
   } catch (err) {
     console.error("Error fetching recent tickets:", err);
-    res.status(500).json({ 
+    res.status(500).json({
       message: "Error fetching recent tickets",
-      error: err.message 
+      error: err.message
     });
-  }
-};
-
-exports.assignTicketToAgent = async (req, res) => {
-  try {
-    const { ticketId } = req.params;
-    const { agentId } = req.body;
-
-    // Check if ticket exists
-    const ticket = await Ticket.findById(ticketId);
-    if (!ticket) {
-      return res.status(404).json({ message: "Ticket not found" });
-    }
-
-    // Check if agent exists and is actually an agent
-    const agent = await User.findOne({ _id: agentId, role: 'Agent' });
-    if (!agent) {
-      return res.status(400).json({ message: "Invalid agent ID" });
-    }
-
-    ticket.assignedTo = agentId;
-    if (ticket.status === 'Open') {
-      ticket.status = 'In Progress';
-    }
-    await ticket.save();
-
-    // Create notification for agent
-    const notification = new Notification({
-      user: agentId,
-      message: `You have been assigned ticket: ${ticket.title}`
-    });
-    await notification.save();
-
-    const updatedTicket = await Ticket.findById(ticketId)
-      .populate("createdBy", "name email")
-      .populate("assignedTo", "name email")
-      .populate("category", "name");
-
-    res.json(updatedTicket);
-  } catch (err) {
-    console.error("Error assigning ticket:", err);
-    res.status(500).json({ message: "Failed to assign ticket" });
   }
 };
 
