@@ -11,6 +11,18 @@ const aiService = {
       console.error('Error getting summary:', error);
       throw error;
     }
+  },
+
+  getSummary: async (description) => {
+    try {
+      const response = await axios.post(`${AI_API_URL}/summarize`, {
+        text: description
+      });
+      return response.data.summary;
+    } catch (error) {
+      console.error('Error getting summary:', error);
+      throw new Error('Failed to get AI summary');
+    }
   }
 };
 

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import api from "../../api";
+import aiService from "../../services/aiService";
 
 const UserDashboard = () => {
   const [stats, setStats] = useState({
@@ -13,6 +14,8 @@ const UserDashboard = () => {
   const [recentTickets, setRecentTickets] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedStatus, setSelectedStatus] = useState(() => localStorage.getItem('selectedStatus') || null);
+  const [summaries, setSummaries] = useState({});
+  const [summaryLoading, setSummaryLoading] = useState({});
 
   useEffect(() => {
     localStorage.setItem('selectedStatus', selectedStatus);
@@ -53,6 +56,18 @@ const UserDashboard = () => {
       setRecentTickets(recentTickets);
     }
   }, [selectedStatus]);
+
+  const getTicketSummary = async (ticketId, description) => {
+    try {
+      setSummaryLoading(prev => ({ ...prev, [ticketId]: true }));
+      const summary = await aiService.getSummary(description);
+      setSummaries(prev => ({ ...prev, [ticketId]: summary }));
+    } catch (error) {
+      console.error('Error getting summary:', error);
+    } finally {
+      setSummaryLoading(prev => ({ ...prev, [ticketId]: false }));
+    }
+  };
 
   if (loading) {
     return (
@@ -247,51 +262,88 @@ const UserDashboard = () => {
             <div className="divide-y divide-gray-600/50">
               {recentTickets.length > 0 ? (
                 recentTickets.map((ticket) => (
-                  <Link
-                    key={ticket._id}
-                    to={`/tickets/${ticket._id}`}
-                    className="group block p-6 hover:bg-gradient-to-r hover:from-gray-700/50 hover:to-gray-600/30 transition-all duration-300"
-                  >
-                    <div className="flex justify-between items-start space-x-4">
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-start space-x-4">
-                          <div className="w-3 h-3 bg-blue-500 rounded-full mt-3 group-hover:bg-blue-400 transition-colors duration-300"></div>
-                          <div className="flex-1">
-                            <h3 className="text-xl font-semibold text-white group-hover:text-blue-300 transition-colors duration-300 mb-2">
-                              {ticket.title}
-                            </h3>
-                            <p className="text-gray-400 leading-relaxed mb-3">
-                              {ticket.description.substring(0, 150)}
-                              {ticket.description.length > 150 && "..."}
-                            </p>
-                            <div className="flex items-center text-sm text-gray-400">
-                              <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                              </svg>
-                              Created {new Date(ticket.createdAt).toLocaleDateString()}
+                  <div key={ticket._id}>
+                    <Link
+                      to={`/tickets/${ticket._id}`}
+                      className="group block p-6 hover:bg-gradient-to-r hover:from-gray-700/50 hover:to-gray-600/30 transition-all duration-300"
+                    >
+                      <div className="flex justify-between items-start space-x-4">
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-start space-x-4">
+                            <div className="w-3 h-3 bg-blue-500 rounded-full mt-3 group-hover:bg-blue-400 transition-colors duration-300"></div>
+                            <div className="flex-1">
+                              <h3 className="text-xl font-semibold text-white group-hover:text-blue-300 transition-colors duration-300 mb-2">
+                                {ticket.title}
+                              </h3>
+                              <p className="text-gray-400 leading-relaxed mb-3">
+                                {ticket.description.substring(0, 150)}
+                                {ticket.description.length > 150 && "..."}
+                              </p>
+                              <div className="flex items-center text-sm text-gray-400">
+                                <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                </svg>
+                                Created {new Date(ticket.createdAt).toLocaleDateString()}
+                              </div>
                             </div>
                           </div>
                         </div>
-                      </div>
-                      
-                      <div className="flex flex-col items-end space-y-3">
-                        <span className={`px-4 py-2 rounded-full text-sm font-semibold border shadow-sm ${
-                          ticket.status === 'Open' ? 'bg-amber-100 text-amber-800 border-amber-200' :
-                          ticket.status === 'In Progress' ? 'bg-blue-100 text-blue-800 border-blue-200' :
-                          'bg-emerald-100 text-emerald-800 border-emerald-200'
-                        }`}>
-                          {ticket.status}
-                        </span>
                         
-                        <div className="flex items-center text-gray-400 group-hover:text-blue-400 transition-colors duration-300">
-                          <span className="text-sm mr-2">View Details</span>
-                          <svg className="w-5 h-5 transform group-hover:translate-x-1 transition-transform duration-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-                          </svg>
+                        <div className="flex flex-col items-end space-y-3">
+                          <span className={`px-4 py-2 rounded-full text-sm font-semibold border shadow-sm ${
+                            ticket.status === 'Open' ? 'bg-amber-100 text-amber-800 border-amber-200' :
+                            ticket.status === 'In Progress' ? 'bg-blue-100 text-blue-800 border-blue-200' :
+                            'bg-emerald-100 text-emerald-800 border-emerald-200'
+                          }`}>
+                            {ticket.status}
+                          </span>
+                          
+                          <div className="flex items-center text-gray-400 group-hover:text-blue-400 transition-colors duration-300">
+                            <span className="text-sm mr-2">View Details</span>
+                            <svg className="w-5 h-5 transform group-hover:translate-x-1 transition-transform duration-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                            </svg>
+                          </div>
                         </div>
                       </div>
+                    </Link>
+
+                    {/* Add AI Summary Section */}
+                    <div className="mt-4 border-t border-gray-600/30 pt-4">
+                      <div className="flex justify-between items-center mb-2">
+                        <h4 className="text-sm font-semibold text-gray-300 flex items-center">
+                          <span className="mr-2">🤖</span> AI Summary
+                        </h4>
+                        {!summaries[ticket._id] && (
+                          <button
+                            onClick={() => getTicketSummary(ticket._id, ticket.description)}
+                            className="text-xs bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded-full transition-colors"
+                            disabled={summaryLoading[ticket._id]}
+                          >
+                            {summaryLoading[ticket._id] ? (
+                              <span className="flex items-center">
+                                <svg className="animate-spin h-4 w-4 mr-2" viewBox="0 0 24 24">
+                                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none"/>
+                                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"/>
+                                </svg>
+                                Analyzing...
+                              </span>
+                            ) : (
+                              "Generate Summary"
+                            )}
+                          </button>
+                        )}
+                      </div>
+                      
+                      {summaries[ticket._id] && (
+                        <div className="bg-gray-800/50 rounded-lg p-4 mt-2">
+                          <p className="text-gray-300 text-sm leading-relaxed">
+                            {summaries[ticket._id]}
+                          </p>
+                        </div>
+                      )}
                     </div>
-                  </Link>
+                  </div>
                 ))
               ) : (
                 <div className="text-center py-20 bg-gradient-to-br from-gray-700/30 to-gray-600/20">

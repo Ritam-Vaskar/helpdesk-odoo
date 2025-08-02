@@ -12,7 +12,7 @@ const AgentDashboard = () => {
   const [comment, setComment] = useState("");
   const [selectedStatus, setSelectedStatus] = useState(null);
   const [summaries, setSummaries] = useState({});
-  const [loadingSummary, setLoadingSummary] = useState({});
+  const [summaryLoading, setSummaryLoading] = useState({});
 
   useEffect(() => {
     fetchTickets();
@@ -79,15 +79,15 @@ const AgentDashboard = () => {
     }
   };
 
-  const getSummary = async (ticketId, description) => {
+  const getTicketSummary = async (ticketId, description) => {
     try {
-      setLoadingSummary(prev => ({ ...prev, [ticketId]: true }));
-      const summary = await aiService.summarizeText(description);
+      setSummaryLoading(prev => ({ ...prev, [ticketId]: true }));
+      const summary = await aiService.getSummary(description);
       setSummaries(prev => ({ ...prev, [ticketId]: summary }));
     } catch (error) {
       console.error('Error getting summary:', error);
     } finally {
-      setLoadingSummary(prev => ({ ...prev, [ticketId]: false }));
+      setSummaryLoading(prev => ({ ...prev, [ticketId]: false }));
     }
   };
 
@@ -363,11 +363,11 @@ const AgentDashboard = () => {
                         </h4>
                         {!summaries[ticket._id] && (
                           <button
-                            onClick={() => getSummary(ticket._id, ticket.description)}
+                            onClick={() => getTicketSummary(ticket._id, ticket.description)}
                             className="text-xs bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded-full transition-colors"
-                            disabled={loadingSummary[ticket._id]}
+                            disabled={summaryLoading[ticket._id]}
                           >
-                            {loadingSummary[ticket._id] ? (
+                            {summaryLoading[ticket._id] ? (
                               <span className="flex items-center">
                                 <svg className="animate-spin h-4 w-4 mr-2" viewBox="0 0 24 24">
                                   <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none"/>
