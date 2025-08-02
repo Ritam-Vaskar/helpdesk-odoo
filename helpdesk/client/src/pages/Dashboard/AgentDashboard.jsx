@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import api from "../../api";
+import aiService from "../../services/aiService";
 
 const AgentDashboard = () => {
   const [tickets, setTickets] = useState([]);
@@ -10,6 +11,8 @@ const AgentDashboard = () => {
   const [selectedTicket, setSelectedTicket] = useState(null);
   const [comment, setComment] = useState("");
   const [selectedStatus, setSelectedStatus] = useState(null);
+  const [summaries, setSummaries] = useState({});
+  const [loadingSummary, setLoadingSummary] = useState({});
 
   useEffect(() => {
     fetchTickets();
@@ -73,6 +76,18 @@ const AgentDashboard = () => {
       setComment("");
     } catch (err) {
       setError(err.message);
+    }
+  };
+
+  const getSummary = async (ticketId, description) => {
+    try {
+      setLoadingSummary(prev => ({ ...prev, [ticketId]: true }));
+      const summary = await aiService.summarizeText(description);
+      setSummaries(prev => ({ ...prev, [ticketId]: summary }));
+    } catch (error) {
+      console.error('Error getting summary:', error);
+    } finally {
+      setLoadingSummary(prev => ({ ...prev, [ticketId]: false }));
     }
   };
 
@@ -340,6 +355,43 @@ const AgentDashboard = () => {
                       </button>
                     )}
 
+                    {/* AI Summary Section */}
+                    <div className="mt-4 border-t border-gray-600/30 pt-4">
+                      <div className="flex justify-between items-center mb-2">
+                        <h4 className="text-sm font-semibold text-gray-300 flex items-center">
+                          <span className="mr-2">🤖</span> AI Summary
+                        </h4>
+                        {!summaries[ticket._id] && (
+                          <button
+                            onClick={() => getSummary(ticket._id, ticket.description)}
+                            className="text-xs bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded-full transition-colors"
+                            disabled={loadingSummary[ticket._id]}
+                          >
+                            {loadingSummary[ticket._id] ? (
+                              <span className="flex items-center">
+                                <svg className="animate-spin h-4 w-4 mr-2" viewBox="0 0 24 24">
+                                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none"/>
+                                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"/>
+                                </svg>
+                                Analyzing...
+                              </span>
+                            ) : (
+                              "Generate Summary"
+                            )}
+                          </button>
+                        )}
+                      </div>
+                      
+                      {summaries[ticket._id] && (
+                        <div className="bg-gray-800/50 rounded-lg p-4 mt-2">
+                          <p className="text-gray-300 text-sm leading-relaxed">
+                            {summaries[ticket._id]}
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                    
+                    {/* Comments Section */}
                     {ticket.comments && ticket.comments.length > 0 && (
                       <div className="mt-6 border-t border-gray-600/50 pt-6">
                         <h4 className="text-lg font-bold text-gray-300 mb-4 flex items-center">
@@ -376,8 +428,8 @@ const AgentDashboard = () => {
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" />
                     </svg>
                   </div>
-                  <h3 className="text-2xl font-bold text-gray-300 mb-3">No tickets available</h3>
-                  <p className="text-gray-400 text-lg">Your assigned tickets will appear here once they're created.</p>
+                  <h3 className="text-2xl font-bold text-gray-300 mb-3">No tickets assigned</h3>
+                  <p className="text-gray-400 text-lg">You will see tickets here once they are assigned to you by an admin.</p>
                 </div>
               )}
             </div>
