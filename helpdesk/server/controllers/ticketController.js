@@ -4,6 +4,7 @@ const User = require("../models/User");
 const Notification = require("../models/Notification");
 const { uploadToBlob } = require("../utils/blobService");
 const axios = require("axios");
+// const sendNotification = require("../utils/sendNotification");
 
 // Flask server configuration
 const FLASK_SERVER_URL = process.env.FLASK_SERVER_URL || "http://localhost:8080";
@@ -454,11 +455,11 @@ exports.assignTicketToAgent = async (req, res) => {
     }
 
     // Send notification to the assigned agent
-    await sendNotification(
-      agentId,
-      `You have been assigned ticket: ${ticket.title}`,
-      'assignment'
-    );
+    // await sendNotification(
+    //   agentId,
+    //   `You have been assigned ticket: ${ticket.title}`,
+    //   'assignment'
+    // );
 
     res.json(ticket);
   } catch (err) {
