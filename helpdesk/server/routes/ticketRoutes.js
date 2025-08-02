@@ -14,6 +14,10 @@ const {
   getRecentTickets,
   getTicketsByAgent,
   assignTicketToAgent,
+  getPriorityUsers,
+  getTicketSummary,
+  searchSimilarComplaints,
+  enhancedSearchComplaints,
 } = require("../controllers/ticketController");
 
 // Configure multer for memory storage
@@ -61,6 +65,37 @@ router.post(
   authMiddleware,
   roleMiddleware(["Admin"]),
   assignTicketToAgent
+);
+
+// Get priority users for ticket assignment (Flask AI integration)
+router.get(
+  "/:ticketId/priority-users",
+  authMiddleware,
+  roleMiddleware(["Admin"]),
+  getPriorityUsers
+);
+
+// Get ticket summary (Flask AI integration)
+router.get(
+  "/:ticketId/summary",
+  authMiddleware,
+  getTicketSummary
+);
+
+// Search similar complaints (Flask AI integration)
+router.post(
+  "/search/similar",
+  authMiddleware,
+  roleMiddleware(["Admin", "Agent"]),
+  searchSimilarComplaints
+);
+
+// Enhanced search complaints (Flask AI integration)
+router.post(
+  "/search/enhanced",
+  authMiddleware,
+  roleMiddleware(["Admin", "Agent"]),
+  enhancedSearchComplaints
 );
 
 module.exports = router;
