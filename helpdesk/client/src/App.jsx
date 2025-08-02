@@ -4,6 +4,7 @@ import AppRoutes from "./routes/AppRoutes";
 import Navbar from "./components/Navbar";
 import Footer from "./components/Footer";
 import { useLocation } from "react-router-dom";
+import ComplaintChatBot from "./components/chatbot"; // <-- Add this import
 
 const App = () => {
   const { pathname } = useLocation();
@@ -18,6 +19,7 @@ const App = () => {
         <AppRoutes />
       </main>
       {!hideUI && <Footer />}
+      <ComplaintChatBot /> {/* <-- Add the chatbot here so it appears on all pages */}
     </div>
   );
 };

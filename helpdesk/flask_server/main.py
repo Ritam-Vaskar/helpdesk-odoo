@@ -4,6 +4,7 @@ from utils.summary import summarize_text
 from utils.priority_prediction import get_priority_score
 from utils.priority_user import get_priority_users, format_priority_report
 from utils.store import add_complaint, search_complaints, search_similar_complaints, get_all_complaints, enhanced_search_complaints
+from utils.chat_bot import resolve_complaint_query
 import os
 from dotenv import load_dotenv
 import uuid
@@ -177,7 +178,19 @@ def get_all():
         return jsonify(results), 200
     except Exception as e:
         return jsonify({'error': str(e)}), 500
-
+@app.route('/resolve_complaint', methods=['POST'])
+def resolve_complaint():
+    data = request.get_json()
+    user_query = data.get('query', '').strip()
+    
+    if not user_query:
+        return jsonify({'error': 'User query is required'}), 400
+    
+    try:
+        response = resolve_complaint_query(user_query)
+        return jsonify({'response': response}), 200
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
 if __name__ == '__main__':
     port = int(os.environ.get("PORT", 8080))
     app.run(host="0.0.0.0", port=port)
