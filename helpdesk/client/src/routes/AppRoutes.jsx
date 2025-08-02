@@ -12,6 +12,7 @@ import AdminDashboard from "../pages/Dashboard/AdminDashboard";
 // Admin Pages
 import ManageUsers from "../pages/Dashboard/ManageUsers";
 import ManageCategories from "../pages/Admin/ManageCategories";
+import ManageByAgent from "../pages/Admin/ManageByAgent";
 
 // Ticket Pages
 import TicketList from "../pages/Tickets/TicketList";
@@ -20,8 +21,11 @@ import TicketCreate from "../pages/Tickets/TicketCreate";
 
 import ProtectedRoute from "./ProtectedRoute";
 import Landing from "../pages/Landing";
+import { useAuth } from "../context/AuthContext";
 
 const AppRoutes = () => {
+  const { user } = useAuth();
+
   return (
     <Routes>
       {/* Public Routes */}
@@ -92,6 +96,15 @@ const AppRoutes = () => {
         element={
           <ProtectedRoute allowedRoles={["admin"]}>
             <ManageCategories />
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/admin/manage-by-agent"
+        element={
+          <ProtectedRoute allowedRoles={["admin"]}>
+            <ManageByAgent />
           </ProtectedRoute>
         }
       />

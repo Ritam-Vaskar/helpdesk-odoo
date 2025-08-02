@@ -1,5 +1,7 @@
 const Ticket = require("../models/Ticket");
 const mongoose = require("mongoose");
+const User = require("../models/User");
+const Notification = require("../models/Notification");
 
 exports.createTicket = async (req, res) => {
   try {
@@ -168,6 +170,23 @@ exports.updateTicket = async (req, res) => {
   }
 };
 
+exports.getTicketsByAgent = async (req, res) => {
+  try {
+    const { agentId } = req.params;
+    const tickets = await Ticket.find({ assignedTo: agentId })
+      .populate("createdBy", "name email")
+      .populate("assignedTo", "name email")
+      .populate("category", "name")
+      .sort({ createdAt: -1 });
+
+    res.json(tickets);
+  } catch (err) {
+    console.error("Error fetching agent tickets:", err);
+    res.status(500).json({ message: "Error fetching agent tickets" });
+  }
+};
+
+// Update addComment function to automatically assign ticket
 exports.addComment = async (req, res) => {
   try {
     const ticket = await Ticket.findById(req.params.id);
@@ -175,11 +194,13 @@ exports.addComment = async (req, res) => {
       return res.status(404).json({ message: "Ticket not found" });
     }
 
-    // Allow both ticket creator and assigned agent to comment
+    // Check if user is authorized to comment
+    const isAdmin = req.user.role === 'Admin';
+    const isAgent = req.user.role === 'Agent';
     const isCreator = ticket.createdBy.toString() === req.user.userId;
     const isAssigned = ticket.assignedTo && ticket.assignedTo.toString() === req.user.userId;
-    
-    if (!isCreator && !isAssigned) {
+
+    if (!isAdmin && !isAgent && !isCreator && !isAssigned) {
       return res.status(403).json({ message: "Not authorized to comment on this ticket" });
     }
 
@@ -188,11 +209,15 @@ exports.addComment = async (req, res) => {
       author: req.user.userId
     };
 
+    // If an agent comments and ticket is unassigned, assign it to them
+    if (isAgent && !ticket.assignedTo && !isCreator) {
+      ticket.assignedTo = req.user.userId;
+    }
+
     ticket.comments.push(comment);
     await ticket.save();
 
-    // Create notification for the other party
-    const Notification = require('../models/Notification');
+    // Create notification
     const notificationRecipient = isCreator ? ticket.assignedTo : ticket.createdBy;
     
     if (notificationRecipient) {
@@ -206,15 +231,13 @@ exports.addComment = async (req, res) => {
     const updatedTicket = await Ticket.findById(req.params.id)
       .populate("createdBy", "name email")
       .populate("category", "name")
-      .populate("comments.author", "name email");
+      .populate("comments.author", "name email")
+      .populate("assignedTo", "name email");
 
     res.json(updatedTicket);
   } catch (err) {
     console.error("Error adding comment:", err);
-    res.status(500).json({ 
-      message: "Failed to add comment",
-      error: err.message 
-    });
+    res.status(500).json({ message: "Failed to add comment" });
   }
 };
 
@@ -281,5 +304,47 @@ exports.getRecentTickets = async (req, res) => {
       message: "Error fetching recent tickets",
       error: err.message 
     });
+  }
+};
+
+exports.assignTicketToAgent = async (req, res) => {
+  try {
+    const { ticketId } = req.params;
+    const { agentId } = req.body;
+
+    // Check if ticket exists
+    const ticket = await Ticket.findById(ticketId);
+    if (!ticket) {
+      return res.status(404).json({ message: "Ticket not found" });
+    }
+
+    // Check if agent exists and is actually an agent
+    const agent = await User.findOne({ _id: agentId, role: 'Agent' });
+    if (!agent) {
+      return res.status(400).json({ message: "Invalid agent ID" });
+    }
+
+    ticket.assignedTo = agentId;
+    if (ticket.status === 'Open') {
+      ticket.status = 'In Progress';
+    }
+    await ticket.save();
+
+    // Create notification for agent
+    const notification = new Notification({
+      user: agentId,
+      message: `You have been assigned ticket: ${ticket.title}`
+    });
+    await notification.save();
+
+    const updatedTicket = await Ticket.findById(ticketId)
+      .populate("createdBy", "name email")
+      .populate("assignedTo", "name email")
+      .populate("category", "name");
+
+    res.json(updatedTicket);
+  } catch (err) {
+    console.error("Error assigning ticket:", err);
+    res.status(500).json({ message: "Failed to assign ticket" });
   }
 };

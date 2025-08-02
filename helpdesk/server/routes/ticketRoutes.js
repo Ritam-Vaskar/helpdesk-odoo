@@ -4,6 +4,7 @@ const multer = require("multer");
 const path = require("path");
 
 const authMiddleware = require("../middlewares/authMiddleware");
+const roleMiddleware = require("../middlewares/roleMiddleware");
 const {
   createTicket,
   getTickets,
@@ -12,6 +13,8 @@ const {
   addComment,
   getTicketStats,
   getRecentTickets,
+  getTicketsByAgent,
+  assignTicketToAgent, // Add this
 } = require("../controllers/ticketController");
 
 // Configure multer for file uploads
@@ -39,6 +42,14 @@ router.post("/", authMiddleware, upload.single("attachment"), createTicket);
 // Get tickets (users only see their own)
 router.get("/", authMiddleware, getTickets);
 
+// Get tickets by agent (before dynamic routes)
+router.get(
+  "/agent/:agentId",
+  authMiddleware,
+  roleMiddleware(["Admin"]),
+  getTicketsByAgent
+);
+
 // Get ticket by id (dynamic route after specific routes)
 router.get("/:id", authMiddleware, getTicketById);
 
@@ -47,5 +58,13 @@ router.put("/:id", authMiddleware, updateTicket);
 
 // Add comment to ticket
 router.post("/:id/comments", authMiddleware, addComment);
+
+// Assign ticket to agent (admin only)
+router.post(
+  "/:ticketId/assign",
+  authMiddleware,
+  roleMiddleware(["Admin"]),
+  assignTicketToAgent
+);
 
 module.exports = router;

@@ -160,6 +160,7 @@ const AdminDashboard = () => {
       <div className="flex gap-4 flex-wrap mb-6">
         <Link to="/admin/manage-users" className="bg-gray-600 hover:bg-gray-700 px-4 py-2 rounded">Manage Users & Agents</Link>
         <Link to="/admin/manage-categories" className="bg-gray-600 hover:bg-gray-700 px-4 py-2 rounded">Manage Categories</Link>
+        <Link to="/admin/manage-by-agent" className="bg-gray-600 hover:bg-gray-700 px-4 py-2 rounded">Manage by Agent</Link>
       </div>
 
       <div className="bg-gray-800 rounded-lg p-6">
