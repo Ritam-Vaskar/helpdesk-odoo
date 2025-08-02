@@ -76,7 +76,7 @@ An intelligent helpdesk management system powered by Google Gemini AI, featuring
 - **JWT** - JSON Web Token authentication
 - **bcryptjs** - Password hashing
 - **CORS** - Cross-origin resource sharing
-- **Multer** - File upload handling
+- **Azure Blob** - File upload handling
 
 ### AI Server (Flask/Python)
 - **Flask** - Lightweight web framework
@@ -88,7 +88,7 @@ An intelligent helpdesk management system powered by Google Gemini AI, featuring
 ### Database & Storage
 - **MongoDB** - Primary database for user data, tickets, categories
 - **ChromaDB** - Vector database for semantic search
-- **Azure Blob Storage** - File storage (optional)
+
 
 ## 🛠️ Installation & Setup
 
@@ -126,7 +126,7 @@ npm install
 
 Create `.env` file in client directory:
 ```env
-REACT_APP_API_URL=http://localhost:5000
+REACT_APP_API_URL=http://localhost:8000
 ```
 
 ### 4. Flask AI Server Setup
@@ -157,7 +157,7 @@ python main.py
 **Terminal 3 - Node.js Backend**
 ```bash
 cd server
-npm run dev
+node index.js
 ```
 
 **Terminal 4 - React Frontend**
@@ -473,7 +473,7 @@ AZURE_STORAGE_CONNECTION_STRING=your_azure_connection_string
 ### Client (.env)
 ```env
 # API Configuration
-REACT_APP_API_URL=http://localhost:5000
+REACT_APP_API_URL=http://localhost:8000
 
 # Feature Flags
 REACT_APP_ENABLE_AI_FEATURES=true
