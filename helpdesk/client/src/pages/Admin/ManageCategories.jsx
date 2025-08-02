@@ -71,6 +71,29 @@ const ManageCategories = () => {
     }
   };
 
+  // Clean markdown formatting from text
+  const cleanMarkdown = (text) => {
+    if (!text) return text;
+    
+    return text
+      // Remove markdown headers
+      .replace(/^#+\s*/gm, '')
+      // Remove bold/italic formatting
+      .replace(/\*\*([^*]+)\*\*/g, '$1')  // **bold** -> bold
+      .replace(/\*([^*]+)\*/g, '$1')      // *italic* -> italic
+      .replace(/__([^_]+)__/g, '$1')      // __bold__ -> bold
+      .replace(/_([^_]+)_/g, '$1')        // _italic_ -> italic
+      // Remove bullet points and list formatting
+      .replace(/^\s*[-*+]\s+/gm, '')
+      .replace(/^\s*\d+\.\s+/gm, '')
+      // Remove code blocks
+      .replace(/```[^`]*```/gs, '')
+      .replace(/`([^`]+)`/g, '$1')
+      // Clean up extra whitespace
+      .replace(/\n\s*\n/g, '\n\n')
+      .trim();
+  };
+
   // Get AI recommendations from Flask server
   const getAIRecommendations = async (ticket) => {
     try {
@@ -86,8 +109,8 @@ const ManageCategories = () => {
           name: response.data.priorityUsers.find(p => p.userId === user.userId)?.name || user.userId,
           email: response.data.priorityUsers.find(p => p.userId === user.userId)?.email || 'unknown@email.com',
           priority_score: user.relevance_score / 10, // Convert 0-10 scale to 0-1
-          reasoning: user.reasoning,
-          matching_queries: user.matching_queries,
+          reasoning: cleanMarkdown(user.reasoning), // Clean markdown from reasoning
+          matching_queries: user.matching_queries?.map(q => cleanMarkdown(q)) || [], // Clean markdown from queries
           total_solved_queries: user.total_solved_queries,
           relevance_score: user.relevance_score
         }));
