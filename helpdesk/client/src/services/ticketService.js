@@ -1,7 +1,7 @@
 import axios from "axios";
 
 // Safely get API base URL with fallback
-let API_BASE_URL = "http://localhost:5000/api";
+let API_BASE_URL = "http://localhost:8000/api";
 
 try {
   if (import.meta.env && import.meta.env.VITE_API_BASE_URL) {
