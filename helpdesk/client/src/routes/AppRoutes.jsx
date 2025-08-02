@@ -20,7 +20,7 @@ import TicketDetails from "../pages/Tickets/TicketDetails";
 import TicketCreate from "../pages/Tickets/TicketCreate";
 
 import ProtectedRoute from "./ProtectedRoute";
-import Landing from "../pages/Landing";
+import Home from "../pages/Home";
 import { useAuth } from "../context/AuthContext";
 
 const AppRoutes = () => {
@@ -29,10 +29,11 @@ const AppRoutes = () => {
   return (
     <Routes>
       {/* Public Routes */}
-      <Route path="/" element={<Landing />} />
+      <Route path="/" element={<Home />} />
       <Route path="/login" element={<Login />} />
       <Route path="/register" element={<Register />} />
 
+      {/* Protected Routes */}
       {/* Default Dashboard Route - redirects based on user role */}
       <Route
         path="/dashboard"
