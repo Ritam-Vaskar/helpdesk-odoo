@@ -3,6 +3,7 @@ from flask_cors import CORS
 from utils.summary import summarize_text
 from utils.priority_prediction import get_priority_score
 from utils.priority_user import get_priority_users, format_priority_report
+from utils.store import add_complaint, search_complaints, search_similar_complaints, get_all_complaints, enhanced_search_complaints
 import os
 from dotenv import load_dotenv
 import uuid
@@ -47,15 +48,6 @@ def priority_score():
     except Exception as e:
         return jsonify({'error': f'Failed to get priority score: {str(e)}'}), 500
 
-    if len(text.strip()) == 0:
-        return jsonify({'error': 'Empty text provided'}), 400
-
-    try:
-        summary = summarize_text(text)
-        return jsonify({'summary': summary}), 200
-    except Exception as e:
-        return jsonify({'error': f'Failed to summarize text: {str(e)}'}), 500
-
 @app.route('/priority-users', methods=['POST'])
 def get_priority_users_endpoint():
     try:
@@ -88,8 +80,6 @@ def get_priority_users_endpoint():
     except Exception as e:
         return jsonify({'error': f'Failed to analyze priority users: {str(e)}'}), 500
 
-from utils.store import add_complaint, search_complaints
-
 @app.route('/add_complaint', methods=['POST'])
 def add():
     data = request.get_json()
@@ -99,27 +89,91 @@ def add():
         return jsonify({'error': 'Complaint text is required'}), 400
     
     complaint_id = str(uuid.uuid4())
+    
+    # Optional metadata for better categorization
+    metadata = {
+        'timestamp': data.get('timestamp'),
+        'category': data.get('category'),
+        'priority': data.get('priority'),
+        'user_id': data.get('user_id')
+    }
+    
+    # Remove None values from metadata
+    metadata = {k: v for k, v in metadata.items() if v is not None}
+    
+    # Ensure we have at least one metadata field for ChromaDB
+    if not metadata:
+        metadata = {'type': 'complaint'}
+    
     try:
-        add_complaint(complaint, complaint_id)
-        return jsonify({'message': 'Complaint added successfully', 'id': complaint_id}), 200
+        add_complaint(complaint, complaint_id, metadata)
+        return jsonify({
+            'message': 'Complaint added successfully', 
+            'id': complaint_id,
+            'metadata': metadata
+        }), 200
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
-@app.route('/search_complaints', methods=['POST'])
-def search():
+# @app.route('/search_complaints', methods=['POST'])
+# def search():
+#     data = request.get_json()
+#     query = data.get('query', '').strip()
+    
+#     if not query:
+#         return jsonify({'error': 'Search query is required'}), 400
+    
+#     try:
+#         results = search_complaints(query, k=5)
+#         return jsonify({
+#             'matches': results['documents'][0],
+#             'ids': results['ids'][0],
+#             'distances': results['distances'][0]
+#         }), 200
+#     except Exception as e:
+#         return jsonify({'error': str(e)}), 500
+
+@app.route('/search_similar_complaints', methods=['POST'])
+def search_similar():
     data = request.get_json()
     query = data.get('query', '').strip()
+    max_results = data.get('max_results', 5)
+    similarity_threshold = data.get('similarity_threshold', 1.2)  # More lenient default
     
     if not query:
         return jsonify({'error': 'Search query is required'}), 400
     
     try:
-        results = search_complaints(query, k=5)
-        return jsonify({
-            'matches': results['documents'][0],
-            'ids': results['ids'][0],
-            'distances': results['distances'][0]
-        }), 200
+        results = search_similar_complaints(
+            query=query, 
+            k=max_results, 
+            threshold=similarity_threshold
+        )
+        return jsonify(results), 200
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/enhanced_search_complaints', methods=['POST'])
+def enhanced_search():
+    data = request.get_json()
+    query = data.get('query', '').strip()
+    max_results = data.get('max_results', 5)
+    
+    if not query:
+        return jsonify({'error': 'Search query is required'}), 400
+    
+    try:
+        results = enhanced_search_complaints(query=query, k=max_results)
+        return jsonify(results), 200
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/all_complaints', methods=['GET'])
+def get_all():
+    """Get all complaints for debugging purposes."""
+    try:
+        results = get_all_complaints()
+        return jsonify(results), 200
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
