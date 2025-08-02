@@ -1,7 +1,7 @@
 const mongoose = require("mongoose");
 
 const notificationSchema = new mongoose.Schema({
-  recipient: {
+  user: {
     type: mongoose.Schema.Types.ObjectId,
     ref: "User",
     required: true
@@ -18,7 +18,7 @@ const notificationSchema = new mongoose.Schema({
       "TICKET_STATUS_CHANGE",
       "AGENT_ASSIGNED"
     ],
-    required: true
+    default: "system"
   },
   ticketId: {
     type: mongoose.Schema.Types.ObjectId,

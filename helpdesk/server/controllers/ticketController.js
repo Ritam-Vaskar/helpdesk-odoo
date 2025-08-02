@@ -430,43 +430,37 @@ exports.assignTicketToAgent = async (req, res) => {
     const { ticketId } = req.params;
     const { agentId } = req.body;
 
-    // Check if ticket exists
-    const ticket = await Ticket.findById(ticketId);
-    if (!ticket) {
-      return res.status(404).json({ message: "Ticket not found" });
-    }
-
-    // Check if agent exists and is actually an agent
+    // Validate agent exists and is actually an agent
     const agent = await User.findOne({ 
       _id: agentId, 
-      $or: [
-        { role: 'Agent' },
-        { role: 'agent' }
-      ]
+      role: { $in: ['Agent', 'agent'] } 
     });
+    
     if (!agent) {
       return res.status(400).json({ message: "Invalid agent ID" });
     }
 
-    ticket.assignedTo = agentId;
-    if (ticket.status === 'Open') {
-      ticket.status = 'In Progress';
+    const ticket = await Ticket.findByIdAndUpdate(
+      ticketId,
+      { 
+        assignedTo: agentId,
+        status: 'In Progress' 
+      },
+      { new: true }
+    ).populate("createdBy assignedTo category");
+
+    if (!ticket) {
+      return res.status(404).json({ message: "Ticket not found" });
     }
-    await ticket.save();
 
-    // Create notification for agent
-    const notification = new Notification({
-      user: agentId,
-      message: `You have been assigned ticket: ${ticket.title}`
-    });
-    await notification.save();
+    // Send notification to the assigned agent
+    await sendNotification(
+      agentId,
+      `You have been assigned ticket: ${ticket.title}`,
+      'assignment'
+    );
 
-    const updatedTicket = await Ticket.findById(ticketId)
-      .populate("createdBy", "name email")
-      .populate("assignedTo", "name email")
-      .populate("category", "name");
-
-    res.json(updatedTicket);
+    res.json(ticket);
   } catch (err) {
     console.error("Error assigning ticket:", err);
     res.status(500).json({ 
