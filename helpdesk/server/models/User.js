@@ -8,7 +8,9 @@ const userSchema = new mongoose.Schema({
     type: String,
     enum: ["User", "Agent", "Admin"],
     default: "User"
-  }
+  },
+  expertise: [String], // Areas of expertise for agents
+  skills: [String]     // Technical skills for agents
 });
 
 module.exports = mongoose.model("User", userSchema);

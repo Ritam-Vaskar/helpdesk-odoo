@@ -9,6 +9,7 @@ const ticketSchema = new mongoose.Schema({
     enum: ["Open", "In Progress", "Resolved", "Closed"],
     default: "Open"
   },
+  priority: { type: Number, min: 1, max: 10, default: 1 }, // AI-generated priority score
   createdBy: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
   assignedTo: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
   comments: [

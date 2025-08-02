@@ -3,6 +3,10 @@ const mongoose = require("mongoose");
 const User = require("../models/User");
 const Notification = require("../models/Notification");
 const { uploadToBlob } = require("../utils/blobService");
+const axios = require("axios");
+
+// Flask server configuration
+const FLASK_SERVER_URL = process.env.FLASK_SERVER_URL || "http://localhost:8080";
 
 exports.createTicket = async (req, res) => {
   try {
@@ -15,6 +19,29 @@ exports.createTicket = async (req, res) => {
       createdBy: req.user.userId,
       status: "Open"
     };
+
+    // Get priority score from Flask server
+    try {
+      const priorityResponse = await axios.post(`${FLASK_SERVER_URL}/priority_score`, {
+        text: `${req.body.title} ${req.body.description}`
+      });
+      ticketData.priority = priorityResponse.data.priority_score || 1;
+    } catch (error) {
+      console.warn("Failed to get priority score:", error.message);
+      ticketData.priority = 1; // Default priority
+    }
+
+    // Save complaint to Flask server for semantic search
+    try {
+      await axios.post(`${FLASK_SERVER_URL}/add_complaint`, {
+        text: `${req.body.title}: ${req.body.description}`,
+        category: req.body.category,
+        timestamp: new Date().toISOString(),
+        user_id: req.user.userId
+      });
+    } catch (error) {
+      console.warn("Failed to save complaint to Flask server:", error.message);
+    }
 
     // Handle file upload to Azure Blob Storage
     if (req.file) {
@@ -444,6 +471,169 @@ exports.assignTicketToAgent = async (req, res) => {
     console.error("Error assigning ticket:", err);
     res.status(500).json({ 
       message: "Failed to assign ticket",
+      error: err.message 
+    });
+  }
+};
+
+// Get priority users for a ticket using Flask server
+exports.getPriorityUsers = async (req, res) => {
+  try {
+    const { ticketId } = req.params;
+    
+    const ticket = await Ticket.findById(ticketId).populate("createdBy", "name email");
+    if (!ticket) {
+      return res.status(404).json({ message: "Ticket not found" });
+    }
+
+    // Get all agents
+    const agents = await User.find({ role: "Agent" }).select("name email expertise skills");
+    
+    if (agents.length === 0) {
+      return res.status(404).json({ message: "No agents available" });
+    }
+
+    // Format users for Flask server
+    const usersData = agents.map(agent => ({
+      id: agent._id,
+      name: agent.name,
+      email: agent.email,
+      expertise: agent.expertise || [],
+      skills: agent.skills || []
+    }));
+
+    try {
+      const response = await axios.post(`${FLASK_SERVER_URL}/priority-users`, {
+        question: `${ticket.title}: ${ticket.description}`,
+        users: usersData,
+        top_n: 5
+      });
+
+      res.json({
+        ticket: {
+          id: ticket._id,
+          title: ticket.title,
+          description: ticket.description
+        },
+        priorityUsers: response.data
+      });
+    } catch (error) {
+      console.error("Flask server error:", error.message);
+      res.status(500).json({ 
+        message: "Failed to get priority users from AI service",
+        error: error.message,
+        availableAgents: usersData
+      });
+    }
+  } catch (err) {
+    console.error("Error getting priority users:", err);
+    res.status(500).json({ 
+      message: "Failed to get priority users",
+      error: err.message 
+    });
+  }
+};
+
+// Get ticket summary using Flask server
+exports.getTicketSummary = async (req, res) => {
+  try {
+    const { ticketId } = req.params;
+    
+    const ticket = await Ticket.findById(ticketId).populate("createdBy", "name email");
+    if (!ticket) {
+      return res.status(404).json({ message: "Ticket not found" });
+    }
+
+    try {
+      const response = await axios.post(`${FLASK_SERVER_URL}/summarize`, {
+        text: `Title: ${ticket.title}\nDescription: ${ticket.description}\nStatus: ${ticket.status}\nPriority: ${ticket.priority}`
+      });
+
+      res.json({
+        ticket: {
+          id: ticket._id,
+          title: ticket.title,
+          status: ticket.status,
+          priority: ticket.priority
+        },
+        summary: response.data.summary
+      });
+    } catch (error) {
+      console.error("Flask server error:", error.message);
+      res.status(500).json({ 
+        message: "Failed to generate summary",
+        error: error.message
+      });
+    }
+  } catch (err) {
+    console.error("Error getting ticket summary:", err);
+    res.status(500).json({ 
+      message: "Failed to get ticket summary",
+      error: err.message 
+    });
+  }
+};
+
+// Search similar complaints using Flask server
+exports.searchSimilarComplaints = async (req, res) => {
+  try {
+    const { query, maxResults = 5 } = req.body;
+    
+    if (!query) {
+      return res.status(400).json({ message: "Search query is required" });
+    }
+
+    try {
+      const response = await axios.post(`${FLASK_SERVER_URL}/search_similar_complaints`, {
+        query: query,
+        max_results: maxResults,
+        similarity_threshold: 1.2
+      });
+
+      res.json(response.data);
+    } catch (error) {
+      console.error("Flask server error:", error.message);
+      res.status(500).json({ 
+        message: "Failed to search similar complaints",
+        error: error.message
+      });
+    }
+  } catch (err) {
+    console.error("Error searching complaints:", err);
+    res.status(500).json({ 
+      message: "Failed to search complaints",
+      error: err.message 
+    });
+  }
+};
+
+// Get enhanced search results
+exports.enhancedSearchComplaints = async (req, res) => {
+  try {
+    const { query, maxResults = 5 } = req.body;
+    
+    if (!query) {
+      return res.status(400).json({ message: "Search query is required" });
+    }
+
+    try {
+      const response = await axios.post(`${FLASK_SERVER_URL}/enhanced_search_complaints`, {
+        query: query,
+        max_results: maxResults
+      });
+
+      res.json(response.data);
+    } catch (error) {
+      console.error("Flask server error:", error.message);
+      res.status(500).json({ 
+        message: "Failed to perform enhanced search",
+        error: error.message
+      });
+    }
+  } catch (err) {
+    console.error("Error in enhanced search:", err);
+    res.status(500).json({ 
+      message: "Failed to perform enhanced search",
       error: err.message 
     });
   }
