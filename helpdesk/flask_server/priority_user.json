@@ -1,0 +1,95 @@
+{
+    "question": "How to fix laptop battery not charging properly?",
+    "top_n": 5,
+    "users": [
+        {
+            "userId": "23CS8002",
+            "expertise_domain": "AI/API Integration",
+            "Solved queries": [
+                "How to integrate Gemini API with Flask?",
+                "How to summarize text using Gemini API?",
+                "How to handle errors in Gemini API integration?",
+                "How to configure API keys for Gemini?",
+                "How to implement text processing with AI models?",
+                "How to handle API rate limiting?",
+                "How to parse JSON responses from APIs?",
+                "How to implement error handling for API calls?"
+            ]
+        },
+        {
+            "userId": "23CS8003",
+            "expertise_domain": "Hardware Troubleshooting",
+            "Solved queries": [
+                "How to solve laptop problems?",
+                "How does laptop GPU work?",
+                "How to fix laptop screen issues?",
+                "How to troubleshoot laptop battery problems?",
+                "How to clean laptop keyboard properly?",
+                "How to upgrade laptop RAM?",
+                "How to install software on laptop?",
+                "How to update laptop drivers?",
+                "How to optimize laptop performance?",
+                "How to fix laptop overheating issues?",
+                "How to replace laptop hard drive?",
+                "How to fix laptop charging port?",
+                "How to troubleshoot laptop audio issues?"
+            ]
+        },
+        {
+            "userId": "23CS8004",
+            "expertise_domain": "Cooking",
+            "Solved queries": [
+                "How to cook pasta perfectly?",
+                "How to make homemade pizza?",
+                "How to bake a chocolate cake?",
+                "How to prepare fresh salad?",
+                "How to cook rice properly?",
+                "How to grill vegetables?",
+                "How to make bread from scratch?",
+                "How to prepare Italian dishes?",
+                "How to bake cookies and desserts?",
+                "How to cook meat properly?",
+                "How to make healthy meals?",
+                "How to use kitchen appliances effectively?"
+            ]
+        },
+        {
+            "userId": "23CS8005",
+            "expertise_domain": "Web Development",
+            "Solved queries": [
+                "How to debug JavaScript code?",
+                "How to implement REST APIs?",
+                "How to optimize database queries?",
+                "How to handle authentication in web apps?",
+                "How to deploy applications to cloud?",
+                "How to implement responsive design?",
+                "How to use version control with Git?",
+                "How to implement JWT authentication?",
+                "How to optimize web application performance?",
+                "How to handle CORS in web applications?",
+                "How to implement real-time features with WebSockets?",
+                "How to secure web applications?",
+                "How to implement caching strategies?"
+            ]
+        },
+        {
+            "userId": "23CS8006",
+            "expertise_domain": "UI/UX Design",
+            "Solved queries": [
+                "How to design user interfaces?",
+                "How to conduct user research?",
+                "How to create wireframes and prototypes?",
+                "How to choose color schemes for apps?",
+                "How to improve user experience?",
+                "How to create accessible designs?",
+                "How to test usability of applications?",
+                "How to design mobile app interfaces?",
+                "How to conduct user interviews?",
+                "How to create user personas?",
+                "How to design for different screen sizes?",
+                "How to implement design systems?",
+                "How to measure user engagement?"
+            ]
+        }
+    ]
+}
