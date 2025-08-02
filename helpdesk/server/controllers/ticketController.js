@@ -90,16 +90,13 @@ exports.getTickets = async (req, res) => {
     let query = {};
     const userRole = req.user.role.toLowerCase();
     
-    // If user is not admin or agent, only show their tickets
     if (userRole === 'user') {
       query.createdBy = req.user.userId;
     } else if (userRole === 'agent') {
-      // For agents, show all open tickets and tickets assigned to them
-      query.$or = [
-        { status: 'Open' },
-        { assignedTo: req.user.userId }
-      ];
+      // Only show tickets explicitly assigned to this agent
+      query.assignedTo = req.user.userId;
     }
+    // Admin can see all tickets (no query filter)
     
     const tickets = await Ticket.find(query)
       .populate("createdBy", "name email")
