@@ -1,6 +1,6 @@
 from flask import Flask, request, jsonify
 from flask_cors import CORS
-from utils.gemini import summarize_text
+from utils.summary.gemini import summarize_text
 import os
 from dotenv import load_dotenv
 

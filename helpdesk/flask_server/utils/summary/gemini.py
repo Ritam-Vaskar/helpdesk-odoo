@@ -55,7 +55,15 @@ def summarize_text(content):
         test_result = model.generate_content("Say hello")
         print("Model access test successful")
         
-        prompt = f"You are a professional complaint summarizer. Given the complaint text below, extract and summarize the main issues raised, impacted areas or individuals, and any actions requested or taken. Use formal and objective language. Avoid exaggeration or personal interpretation. If applicable, categorize the type of complaint (e.g., technical issue, service delay, product defect). Structure the summary in bullet points for clarity. Length: Keep it concise while retaining essential details (about 25–30% of the original). Complaint text:\n\n{content}"
+        prompt = f"You are a professional complaint summarizer. Given the complaint text\
+              below, extract and summarize the main issues raised, impacted areas or\
+                individuals, and any actions requested or taken. Use formal and objective\
+                      language. Avoid exaggeration or personal interpretation. If applicable,\
+                          categorize the type of complaint (e.g., technical issue, service\
+                              delay, product defect). Structure the summary in bullet points\
+                                  for clarity.\
+            Length: Keep it concise while retaining essential details (about 25–30% of the original).\
+                  Complaint text:\n\n{content}"
         
         print("Generating content with Gemini...")
         result = model.generate_content(prompt)
