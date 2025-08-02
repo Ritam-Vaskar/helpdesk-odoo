@@ -5,6 +5,7 @@ from utils.priority_prediction import get_priority_score
 from utils.priority_user import get_priority_users, format_priority_report
 import os
 from dotenv import load_dotenv
+import uuid
 
 # Load environment variables from .env file
 load_dotenv()
@@ -87,7 +88,40 @@ def get_priority_users_endpoint():
     except Exception as e:
         return jsonify({'error': f'Failed to analyze priority users: {str(e)}'}), 500
 
+from utils.store import add_complaint, search_complaints
 
+@app.route('/add_complaint', methods=['POST'])
+def add():
+    data = request.get_json()
+    complaint = data.get('text', '').strip()
+    
+    if not complaint:
+        return jsonify({'error': 'Complaint text is required'}), 400
+    
+    complaint_id = str(uuid.uuid4())
+    try:
+        add_complaint(complaint, complaint_id)
+        return jsonify({'message': 'Complaint added successfully', 'id': complaint_id}), 200
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/search_complaints', methods=['POST'])
+def search():
+    data = request.get_json()
+    query = data.get('query', '').strip()
+    
+    if not query:
+        return jsonify({'error': 'Search query is required'}), 400
+    
+    try:
+        results = search_complaints(query, k=5)
+        return jsonify({
+            'matches': results['documents'][0],
+            'ids': results['ids'][0],
+            'distances': results['distances'][0]
+        }), 200
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
 
 if __name__ == '__main__':
     port = int(os.environ.get("PORT", 8080))
