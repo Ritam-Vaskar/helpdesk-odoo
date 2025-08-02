@@ -213,21 +213,14 @@ exports.addComment = async (req, res) => {
       return res.status(404).json({ message: "Ticket not found" });
     }
 
-    // Check if user is authorized to comment
-    const isAdmin = req.user.role === 'Admin';
-    const isAgent = req.user.role === 'Agent';
-    const isCreator = ticket.createdBy.toString() === req.user.userId;
-    const isAssigned = ticket.assignedTo && ticket.assignedTo.toString() === req.user.userId;
+    // Get user role and normalize it to lowercase for comparison
+    const userRole = req.user.role.toLowerCase();
     const isAdmin = userRole === 'admin';
     const isAgent = userRole === 'agent';
-    
-    // Allow comments from:
-    // 1. Ticket creator
-    // 2. Assigned agent
-    // 3. Any admin
-    // 4. Any agent (can comment on any ticket)
-    if (!isCreator && !isAssigned && !isAdmin && !isAgent) {
+    const isCreator = ticket.createdBy.toString() === req.user.userId;
+    const isAssigned = ticket.assignedTo && ticket.assignedTo.toString() === req.user.userId;
 
+    // Allow comments from admins, agents, ticket creator, or assigned agent
     if (!isAdmin && !isAgent && !isCreator && !isAssigned) {
       return res.status(403).json({ message: "Not authorized to comment on this ticket" });
     }
@@ -245,7 +238,7 @@ exports.addComment = async (req, res) => {
     ticket.comments.push(comment);
     await ticket.save();
 
-    // Create notification
+    // Create notification for relevant users
     const notificationRecipient = isCreator ? ticket.assignedTo : ticket.createdBy;
     
     if (notificationRecipient) {
@@ -265,7 +258,11 @@ exports.addComment = async (req, res) => {
     res.json(updatedTicket);
   } catch (err) {
     console.error("Error adding comment:", err);
-    res.status(500).json({ message: "Failed to add comment" });
+    res.status(500).json({ 
+      message: "Failed to add comment",
+      error: err.message,
+      stack: process.env.NODE_ENV === 'development' ? err.stack : undefined
+    });
   }
 };
 
