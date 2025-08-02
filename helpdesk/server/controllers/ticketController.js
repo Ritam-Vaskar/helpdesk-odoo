@@ -95,7 +95,7 @@ exports.getTicketById = async (req, res) => {
     const isTicketCreator = ticket.createdBy._id.toString() === req.user.userId;
     const isAssignedAgent = ticket.assignedTo && ticket.assignedTo._id.toString() === req.user.userId;
 
-    // Allow access if user is admin, agent assigned to the ticket, or ticket creator
+    // Allow access if user is admin, agent (any ticket), or ticket creator, or assigned agent
     if (!isAdmin && !isAgent && !isTicketCreator && !isAssignedAgent) {
       console.log('Authorization failed. User role:', userRole);
       return res.status(403).json({ message: "Not authorized to view this ticket" });
@@ -121,8 +121,10 @@ exports.updateTicket = async (req, res) => {
     }
 
     const userRole = req.user.role.toLowerCase();
+    const isTicketCreator = ticket.createdBy && ticket.createdBy.toString() === req.user.userId;
+    
     // Allow agents and admins to update ticket status and add comments
-    if (userRole !== 'agent' && userRole !== 'admin' && ticket.createdBy.toString() !== req.user.userId) {
+    if (userRole !== 'agent' && userRole !== 'admin' && !isTicketCreator) {
       return res.status(403).json({ message: "Not authorized to update this ticket" });
     }
 
@@ -130,7 +132,7 @@ exports.updateTicket = async (req, res) => {
     const allowedUpdates = ['status'];
     if (userRole === 'agent' || userRole === 'admin') {
       // If agent or admin is updating status, automatically assign the ticket
-      if (req.body.status === 'In Progress') {
+      if (req.body.status === 'In Progress' && !ticket.assignedTo) {
         req.body.assignedTo = req.user.userId;
       }
     }
@@ -158,7 +160,8 @@ exports.updateTicket = async (req, res) => {
     )
       .populate("createdBy", "name email")
       .populate("category", "name")
-      .populate("comments.author", "name email");
+      .populate("comments.author", "name email")
+      .populate("assignedTo", "name email");
 
     res.json(updatedTicket);
   } catch (err) {
@@ -167,6 +170,22 @@ exports.updateTicket = async (req, res) => {
       message: "Failed to update ticket",
       error: err.message 
     });
+  }
+};
+
+exports.getTicketsByAgent = async (req, res) => {
+  try {
+    const { agentId } = req.params;
+    const tickets = await Ticket.find({ assignedTo: agentId })
+      .populate("createdBy", "name email")
+      .populate("assignedTo", "name email")
+      .populate("category", "name")
+      .sort({ createdAt: -1 });
+
+    res.json(tickets);
+  } catch (err) {
+    console.error("Error fetching agent tickets:", err);
+    res.status(500).json({ message: "Error fetching agent tickets" });
   }
 };
 
@@ -199,6 +218,15 @@ exports.addComment = async (req, res) => {
     const isAgent = req.user.role === 'Agent';
     const isCreator = ticket.createdBy.toString() === req.user.userId;
     const isAssigned = ticket.assignedTo && ticket.assignedTo.toString() === req.user.userId;
+    const isAdmin = userRole === 'admin';
+    const isAgent = userRole === 'agent';
+    
+    // Allow comments from:
+    // 1. Ticket creator
+    // 2. Assigned agent
+    // 3. Any admin
+    // 4. Any agent (can comment on any ticket)
+    if (!isCreator && !isAssigned && !isAdmin && !isAgent) {
 
     if (!isAdmin && !isAgent && !isCreator && !isAssigned) {
       return res.status(403).json({ message: "Not authorized to comment on this ticket" });
@@ -346,5 +374,56 @@ exports.assignTicketToAgent = async (req, res) => {
   } catch (err) {
     console.error("Error assigning ticket:", err);
     res.status(500).json({ message: "Failed to assign ticket" });
+  }
+};
+
+exports.assignTicketToAgent = async (req, res) => {
+  try {
+    const { ticketId } = req.params;
+    const { agentId } = req.body;
+
+    // Check if ticket exists
+    const ticket = await Ticket.findById(ticketId);
+    if (!ticket) {
+      return res.status(404).json({ message: "Ticket not found" });
+    }
+
+    // Check if agent exists and is actually an agent
+    const agent = await User.findOne({ 
+      _id: agentId, 
+      $or: [
+        { role: 'Agent' },
+        { role: 'agent' }
+      ]
+    });
+    if (!agent) {
+      return res.status(400).json({ message: "Invalid agent ID" });
+    }
+
+    ticket.assignedTo = agentId;
+    if (ticket.status === 'Open') {
+      ticket.status = 'In Progress';
+    }
+    await ticket.save();
+
+    // Create notification for agent
+    const notification = new Notification({
+      user: agentId,
+      message: `You have been assigned ticket: ${ticket.title}`
+    });
+    await notification.save();
+
+    const updatedTicket = await Ticket.findById(ticketId)
+      .populate("createdBy", "name email")
+      .populate("assignedTo", "name email")
+      .populate("category", "name");
+
+    res.json(updatedTicket);
+  } catch (err) {
+    console.error("Error assigning ticket:", err);
+    res.status(500).json({ 
+      message: "Failed to assign ticket",
+      error: err.message 
+    });
   }
 };
