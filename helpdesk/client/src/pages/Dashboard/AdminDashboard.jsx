@@ -1,6 +1,10 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import { Link } from "react-router-dom";
 import api from "../../api";
+import { Chart as ChartJS, ArcElement, Tooltip, Legend } from 'chart.js';
+import { Pie } from 'react-chartjs-2';
+
+ChartJS.register(ArcElement, Tooltip, Legend);
 
 const AdminDashboard = () => {
   const [tickets, setTickets] = useState([]);
@@ -10,6 +14,7 @@ const AdminDashboard = () => {
   const [selectedTicket, setSelectedTicket] = useState(null);
   const [comment, setComment] = useState("");
   const [selectedStatus, setSelectedStatus] = useState(null);
+  const chartRef = useRef(null);
 
   useEffect(() => {
     const fetchTickets = async () => {
@@ -80,30 +85,78 @@ const AdminDashboard = () => {
       <h1 className="text-3xl font-semibold">Admin Dashboard</h1>
       <p className="text-gray-400">Overview of all system activity, users, and agents.</p>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+        <div className="md:col-span-3 grid grid-cols-1 md:grid-cols-3 gap-4">
         <div 
           onClick={() => setSelectedStatus(selectedStatus === 'Open' ? null : 'Open')}
-          className={`cursor-pointer p-4 rounded-lg ${selectedStatus === 'Open' ? 'bg-yellow-600' : 'bg-gray-700'} hover:bg-opacity-90 transition-colors`}
+          className={`cursor-pointer p-6 rounded-lg shadow-lg ${selectedStatus === 'Open' ? 'bg-yellow-500' : 'bg-gray-700'} hover:bg-opacity-90 transition-colors transform hover:scale-105`}
         >
-          <h3 className="text-lg font-semibold">Open Tickets</h3>
-          <p className="text-3xl font-bold">{getStatusCount('Open')}</p>
+          <h3 className="text-lg font-semibold text-white">Open Tickets</h3>
+          <p className="text-4xl font-extrabold text-white">{getStatusCount('Open')}</p>
         </div>
         <div 
           onClick={() => setSelectedStatus(selectedStatus === 'In Progress' ? null : 'In Progress')}
-          className={`cursor-pointer p-4 rounded-lg ${selectedStatus === 'In Progress' ? 'bg-blue-600' : 'bg-gray-700'} hover:bg-opacity-90 transition-colors`}
+          className={`cursor-pointer p-6 rounded-lg shadow-lg ${selectedStatus === 'In Progress' ? 'bg-blue-500' : 'bg-gray-700'} hover:bg-opacity-90 transition-colors transform hover:scale-105`}
         >
-          <h3 className="text-lg font-semibold">In Progress</h3>
-          <p className="text-3xl font-bold">{getStatusCount('In Progress')}</p>
+          <h3 className="text-lg font-semibold text-white">In Progress</h3>
+          <p className="text-4xl font-extrabold text-white">{getStatusCount('In Progress')}</p>
         </div>
         <div 
           onClick={() => setSelectedStatus(selectedStatus === 'Resolved' ? null : 'Resolved')}
-          className={`cursor-pointer p-4 rounded-lg ${selectedStatus === 'Resolved' ? 'bg-green-600' : 'bg-gray-700'} hover:bg-opacity-90 transition-colors`}
+          className={`cursor-pointer p-6 rounded-lg shadow-lg ${selectedStatus === 'Resolved' ? 'bg-green-500' : 'bg-gray-700'} hover:bg-opacity-90 transition-colors transform hover:scale-105`}
         >
-          <h3 className="text-lg font-semibold">Resolved</h3>
-          <p className="text-3xl font-bold">{getStatusCount('Resolved')}</p>
+          <h3 className="text-lg font-semibold text-white">Resolved</h3>
+          <p className="text-4xl font-extrabold text-white">{getStatusCount('Resolved')}</p>
+        </div>
+        </div>
+        <div className="bg-gray-700 p-4 rounded-lg">
+          <h3 className="text-lg font-semibold mb-4">Ticket Distribution</h3>
+          <div className="w-full h-64 flex items-center justify-center">
+            <Pie
+              ref={chartRef}
+              data={{
+                  labels: ['Open', 'In Progress', 'Resolved'],
+                  datasets: [
+                    {
+                      data: [
+                        getStatusCount('Open'),
+                        getStatusCount('In Progress'),
+                        getStatusCount('Resolved')
+                      ],
+                      backgroundColor: [
+                        'rgba(234, 179, 8, 0.8)',  // yellow for Open
+                        'rgba(59, 130, 246, 0.8)',  // blue for In Progress
+                        'rgba(34, 197, 94, 0.8)',   // green for Resolved
+                      ],
+                      borderColor: [
+                        'rgba(234, 179, 8, 1)',
+                        'rgba(59, 130, 246, 1)',
+                        'rgba(34, 197, 94, 1)',
+                      ],
+                      borderWidth: 1,
+                    },
+                  ],
+                }}
+                options={{
+                  responsive: true,
+                  maintainAspectRatio: false,
+                  plugins: {
+                    legend: {
+                      position: 'bottom',
+                      labels: {
+                        color: 'white',
+                        font: {
+                          size: 12
+                        }
+                      }
+                    }
+                  }
+                }}
+              />
+            </div>
         </div>
       </div>
-      
+
       <div className="flex gap-4 flex-wrap mb-6">
         <Link to="/admin/manage-users" className="bg-gray-600 hover:bg-gray-700 px-4 py-2 rounded">Manage Users & Agents</Link>
         <Link to="/admin/manage-categories" className="bg-gray-600 hover:bg-gray-700 px-4 py-2 rounded">Manage Categories</Link>

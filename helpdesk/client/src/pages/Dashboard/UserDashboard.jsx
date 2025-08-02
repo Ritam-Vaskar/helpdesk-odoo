@@ -9,8 +9,19 @@ const UserDashboard = () => {
     inProgress: 0,
     resolved: 0
   });
+  const [allTickets, setAllTickets] = useState([]);
   const [recentTickets, setRecentTickets] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [selectedStatus, setSelectedStatus] = useState(() => localStorage.getItem('selectedStatus') || null);
+
+  useEffect(() => {
+    localStorage.setItem('selectedStatus', selectedStatus);
+    if (selectedStatus) {
+      setRecentTickets(allTickets.filter(ticket => ticket.status === selectedStatus));
+    } else {
+      setRecentTickets(allTickets);
+    }
+  }, [selectedStatus, allTickets]);
 
   useEffect(() => {
     const fetchDashboardData = async () => {
@@ -20,7 +31,11 @@ const UserDashboard = () => {
           api.get('/api/tickets/recent')
         ]);
         setStats(statsRes.data);
-        setRecentTickets(ticketsRes.data);
+        setAllTickets(ticketsRes.data);
+        setRecentTickets(selectedStatus ? 
+          ticketsRes.data.filter(ticket => ticket.status === selectedStatus) : 
+          ticketsRes.data
+        );
       } catch (error) {
         console.error('Error fetching dashboard data:', error);
       } finally {
@@ -30,6 +45,14 @@ const UserDashboard = () => {
 
     fetchDashboardData();
   }, []);
+
+  useEffect(() => {
+    if (selectedStatus) {
+      setRecentTickets(recentTickets.filter(ticket => ticket.status === selectedStatus));
+    } else {
+      setRecentTickets(recentTickets);
+    }
+  }, [selectedStatus]);
 
   if (loading) {
     return (
@@ -62,15 +85,15 @@ const UserDashboard = () => {
           <div className="text-gray-400">Total Tickets</div>
           <div className="text-3xl font-bold mt-2 text-white">{stats.total}</div>
         </div>
-        <div className="bg-[#1C1C1C] p-6 rounded-lg shadow-lg border border-gray-700">
+        <div className="bg-[#1C1C1C] p-6 rounded-lg shadow-lg border border-gray-700 cursor-pointer" onClick={() => setSelectedStatus(selectedStatus === 'Open' ? null : 'Open')}>
           <div className="text-gray-400">Open Tickets</div>
           <div className="text-3xl font-bold mt-2 text-yellow-400">{stats.open}</div>
         </div>
-        <div className="bg-[#1C1C1C] p-6 rounded-lg shadow-lg border border-gray-700">
+        <div className="bg-[#1C1C1C] p-6 rounded-lg shadow-lg border border-gray-700 cursor-pointer" onClick={() => setSelectedStatus(selectedStatus === 'In Progress' ? null : 'In Progress')}>
           <div className="text-gray-400">In Progress</div>
           <div className="text-3xl font-bold mt-2 text-blue-400">{stats.inProgress}</div>
         </div>
-        <div className="bg-[#1C1C1C] p-6 rounded-lg shadow-lg border border-gray-700">
+        <div className="bg-[#1C1C1C] p-6 rounded-lg shadow-lg border border-gray-700 cursor-pointer" onClick={() => setSelectedStatus(selectedStatus === 'Resolved' ? null : 'Resolved')}>
           <div className="text-gray-400">Resolved</div>
           <div className="text-3xl font-bold mt-2 text-green-400">{stats.resolved}</div>
         </div>
