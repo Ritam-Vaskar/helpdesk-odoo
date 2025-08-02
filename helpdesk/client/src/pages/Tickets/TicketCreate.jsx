@@ -18,7 +18,7 @@ const TicketCreate = () => {
   useEffect(() => {
     const fetchCategories = async () => {
       try {
-        const response = await api.get("api/categories");
+        const response = await api.get("/api/categories");
         setCategories(response.data);
       } catch (err) {
         console.error("Error fetching categories:", err);

@@ -175,11 +175,19 @@ exports.addComment = async (req, res) => {
       return res.status(404).json({ message: "Ticket not found" });
     }
 
-    // Allow both ticket creator and assigned agent to comment
-    const isCreator = ticket.createdBy.toString() === req.user.userId;
+    // Check user authorization - more permissive approach
+    const userRole = req.user.role.toLowerCase();
+    const isCreator = ticket.createdBy && ticket.createdBy.toString() === req.user.userId;
     const isAssigned = ticket.assignedTo && ticket.assignedTo.toString() === req.user.userId;
+    const isAdmin = userRole === 'admin';
+    const isAgent = userRole === 'agent';
     
-    if (!isCreator && !isAssigned) {
+    // Allow comments from:
+    // 1. Ticket creator
+    // 2. Assigned agent
+    // 3. Any admin
+    // 4. Any agent (can comment on any ticket)
+    if (!isCreator && !isAssigned && !isAdmin && !isAgent) {
       return res.status(403).json({ message: "Not authorized to comment on this ticket" });
     }
 
@@ -193,7 +201,15 @@ exports.addComment = async (req, res) => {
 
     // Create notification for the other party
     const Notification = require('../models/Notification');
-    const notificationRecipient = isCreator ? ticket.assignedTo : ticket.createdBy;
+    let notificationRecipient = null;
+    
+    if (isCreator && ticket.assignedTo) {
+      // If creator is commenting, notify assigned agent
+      notificationRecipient = ticket.assignedTo;
+    } else if ((isAssigned || isAgent || isAdmin) && ticket.createdBy) {
+      // If agent/admin is commenting, notify ticket creator
+      notificationRecipient = ticket.createdBy;
+    }
     
     if (notificationRecipient) {
       const notification = new Notification({
